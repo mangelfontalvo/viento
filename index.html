@@ -1,43 +1,258 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Consulta de Viento</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Consulta de Viento – Open‑Meteo</title>
+  <!-- SheetJS para generar Excel en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-7G4S4mQe1QJY0Gf1LrT2gRkCwQp2m6n2i8b0Y7VxLZy1cQG3eP2vO1kqgM6kz3k5S0a0v1m3qQbVw2bq9lH0nQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <style>
+    :root{
+      --bg1:#74ebd5; --bg2:#ACB6E5; --card:#fff; --fg:#333; --muted:#666; --brand:#0b72ff; --ok:#24b47e; --ok-700:#1f9a6c;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; color:var(--fg);
+      background: linear-gradient(135deg,var(--bg1),var(--bg2));
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .card{
+      width:min(720px,100%); background:var(--card); border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,.15);
+    }
+    h1{margin:0 0 4px; font-size:22px}
+    p.subtitle{margin:0 0 18px; color:var(--muted); font-size:14px}
+
+    .mode{
+      display:flex; gap:8px; margin:6px 0 18px;
+    }
+    .mode label{display:flex; gap:6px; align-items:center; padding:8px 10px; border:1px solid #e6e6e6; border-radius:10px; cursor:pointer}
+    .mode input{accent-color:var(--brand)}
+
+    form{display:grid; gap:12px}
+    .row{display:flex; flex-wrap:wrap; gap:10px}
+    .field{display:flex; flex-direction:column; gap:6px; flex:1; min-width:180px;}
+    .field.small{max-width:140px}
+    label{font-size:13px; font-weight:600}
+    input[type="text"], input[type="date"], select{
+      width:100%; padding:10px 12px; border:1px solid #dcdcdc; border-radius:10px; font-size:14px;
+    }
+    input[type="text"]:focus, input[type="date"]:focus, select:focus{outline:2px solid #cfe4ff; border-color:#b8d7ff}
+
+    .hint{font-size:12px; color:var(--muted)}
+
+    .actions{display:flex; justify-content:center; margin-top:4px}
+    button{
+      background:var(--ok); color:#fff; border:0; padding:10px 18px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer;
+      transition:transform .15s ease, background .2s ease; min-width:180px;
+    }
+    button:hover{transform:translateY(-1px); background:var(--ok-700)}
+    button:disabled{opacity:.6; cursor:not-allowed; transform:none}
+
+    #status{margin-top:10px; text-align:center; font-size:13px}
+
+    /* Secciones condicionales */
+    .hidden{display:none}
+    .section{padding:12px; border:1px dashed #eaeaea; border-radius:12px; background:#fafafa}
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Descargar datos de viento</h1>
-    <form id="windForm">
-      <label for="lat">Latitud (°):</label>
-      <input type="number" id="lat" step="any" required>
-      
-      <label for="lon">Longitud (°):</label>
-      <input type="number" id="lon" step="any" required>
-      
-      <label for="start">Fecha inicio:</label>
-      <input type="date" id="start" required>
-      
-      <label for="end">Fecha fin:</label>
-      <input type="date" id="end" required>
-      
-      <button type="submit">Descargar CSV</button>
+  <main class="card">
+    <h1>🌬️ Consulta de Viento</h1>
+    <p class="subtitle">Descarga un Excel con velocidad y dirección del viento por hora (Open‑Meteo)</p>
+
+    <!-- Selector de formato de coordenadas -->
+    <div class="mode" role="radiogroup" aria-label="Formato de coordenadas">
+      <label><input type="radio" name="fmt" value="decimal" checked> Decimal (DD.ddddd)</label>
+      <label><input type="radio" name="fmt" value="gms"> GMS (grados‑minutos‑segundos)</label>
+    </div>
+
+    <form id="form">
+      <!-- Coordenadas DECIMALES -->
+      <div id="coords-dec" class="section">
+        <div class="row">
+          <div class="field">
+            <label for="lat-dec">Latitud (decimal)</label>
+            <input id="lat-dec" type="text" inputmode="decimal" placeholder="8.6190" autocomplete="off">
+            <span class="hint">Acepta punto o coma. Norte positivo, Sur negativo.</span>
+          </div>
+          <div class="field">
+            <label for="lon-dec">Longitud (decimal)</label>
+            <input id="lon-dec" type="text" inputmode="decimal" placeholder="-73.8039" autocomplete="off">
+            <span class="hint">Acepta punto o coma. Este positivo, Oeste negativo.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coordenadas GMS -->
+      <div id="coords-gms" class="section hidden">
+        <div class="row">
+          <div class="field small">
+            <label for="lat-g">Lat °</label>
+            <input id="lat-g" type="text" inputmode="numeric" placeholder="8">
+          </div>
+          <div class="field small">
+            <label for="lat-m">Lat ′</label>
+            <input id="lat-m" type="text" inputmode="numeric" placeholder="37">
+          </div>
+          <div class="field small">
+            <label for="lat-s">Lat ″</label>
+            <input id="lat-s" type="text" inputmode="decimal" placeholder="9">
+          </div>
+          <div class="field small">
+            <label for="lat-dir">N/S</label>
+            <select id="lat-dir"><option>N</option><option>S</option></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field small">
+            <label for="lon-g">Lon °</label>
+            <input id="lon-g" type="text" inputmode="numeric" placeholder="73">
+          </div>
+          <div class="field small">
+            <label for="lon-m">Lon ′</label>
+            <input id="lon-m" type="text" inputmode="numeric" placeholder="48">
+          </div>
+          <div class="field small">
+            <label for="lon-s">Lon ″</label>
+            <input id="lon-s" type="text" inputmode="decimal" placeholder="14">
+          </div>
+          <div class="field small">
+            <label for="lon-dir">E/O</label>
+            <select id="lon-dir"><option>E</option><option>O</option><option>W</option></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Fechas (único par) -->
+      <div class="section">
+        <div class="row">
+          <div class="field">
+            <label for="start">Fecha inicio</label>
+            <input id="start" type="date">
+          </div>
+          <div class="field">
+            <label for="end">Fecha fin</label>
+            <input id="end" type="date">
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btn" type="button">📥 Generar Excel</button>
+      </div>
+      <div id="status" aria-live="polite"></div>
     </form>
-  </div>
+  </main>
 
-  <script src="script.js"></script>
+  <script>
+    // Utiles
+    const qs = (s)=>document.querySelector(s);
+    const qsa = (s)=>[...document.querySelectorAll(s)];
+
+    // Alternar secciones segun formato
+    qsa('input[name="fmt"]').forEach(r=>{
+      r.addEventListener('change',()=>{
+        const isDec = qs('input[name="fmt"]:checked').value === 'decimal';
+        qs('#coords-dec').classList.toggle('hidden', !isDec);
+        qs('#coords-gms').classList.toggle('hidden', isDec);
+      });
+    });
+
+    function parseDecimalLoose(v){
+      if(!v) return NaN; // permite vacio
+      // Reemplaza coma por punto y quita espacios
+      v = String(v).trim().replace(',', '.');
+      // Permite signo
+      if(!/^[-+]?\d*(?:\.\d+)?$/.test(v)) return NaN;
+      return parseFloat(v);
+    }
+
+    function gmsADecimal(g,m,s,dir){
+      const gg = parseFloat(String(g||'').replace(',', '.')) || 0;
+      const mm = parseFloat(String(m||'').replace(',', '.')) || 0;
+      const ss = parseFloat(String(s||'').replace(',', '.')) || 0;
+      let dec = gg + mm/60 + ss/3600;
+      if(['S','O','W','o','w','s'].includes(String(dir).toUpperCase())) dec *= -1;
+      return parseFloat(dec.toFixed(6));
+    }
+
+    function buildCoords(){
+      const mode = qs('input[name="fmt"]:checked').value;
+      if(mode === 'decimal'){
+        const lat = parseDecimalLoose(qs('#lat-dec').value);
+        const lon = parseDecimalLoose(qs('#lon-dec').value);
+        if(Number.isNaN(lat) || Number.isNaN(lon)) throw new Error('Latitud/longitud decimales no válidos. Usa números (se acepta coma o punto).');
+        return {lat, lon};
+      } else {
+        const lat = gmsADecimal(qs('#lat-g').value, qs('#lat-m').value, qs('#lat-s').value, qs('#lat-dir').value);
+        const lon = gmsADecimal(qs('#lon-g').value, qs('#lon-m').value, qs('#lon-s').value, qs('#lon-dir').value);
+        return {lat, lon};
+      }
+    }
+
+    function splitCSVToDailySheets(csvText){
+      // Buscar la fila de cabecera que empieza por "time," y tomar desde alli
+      const lines = csvText.replace(/\r/g,'').split('\n');
+      const idx = lines.findIndex(l=>l.toLowerCase().startsWith('time,'));
+      if(idx === -1) throw new Error('No se reconoció el CSV devuelto por la API.');
+      const dataLines = lines.slice(idx).filter(Boolean);
+      const rows = dataLines.map(l=>l.split(','));
+      const headers = rows[0];
+      const byDate = {};
+      for(let i=1;i<rows.length;i++){
+        const r = rows[i];
+        if(r.length < 2) continue;
+        const ts = r[0];
+        const date = ts.split('T')[0];
+        if(!byDate[date]) byDate[date] = [headers];
+        byDate[date].push(r);
+      }
+      return byDate;
+    }
+
+    async function generate(){
+      const btn = qs('#btn');
+      const status = qs('#status');
+      status.textContent = '';
+      try{
+        btn.disabled = true;
+        status.textContent = '⏳ Consultando API...';
+
+        const {lat, lon} = buildCoords();
+        const start = qs('#start').value; const end = qs('#end').value;
+        if(!start || !end) throw new Error('Debes elegir fecha de inicio y fin.');
+
+        const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m&timezone=America%2FBogota&wind_speed_unit=kmh&format=csv`;
+        const res = await fetch(url);
+        const text = await res.text();
+
+        // Si la API devolvio JSON de error
+        if(text.trim().startsWith('{')){
+          const err = JSON.parse(text);
+          throw new Error(err.reason || 'Error en la API');
+        }
+
+        const sheets = splitCSVToDailySheets(text);
+        const wb = XLSX.utils.book_new();
+        Object.keys(sheets).forEach(date=>{
+          const pretty = date.split('-').reverse().join('-'); // DD-MM-YYYY
+          const ws = XLSX.utils.aoa_to_sheet(sheets[date]);
+          XLSX.utils.book_append_sheet(wb, ws, pretty);
+        });
+        const fname = `Viento_${start}_a_${end}.xlsx`;
+        XLSX.writeFile(wb, fname);
+        status.textContent = '✅ Archivo generado con éxito.';
+      }catch(e){
+        status.textContent = '❌ ' + e.message;
+        console.error(e);
+      }finally{
+        qs('#btn').disabled = false;
+      }
+    }
+
+    qs('#btn').addEventListener('click', generate);
+  </script>
 </body>
 </html>
 
-    <h2>📅 Fechas</h2>
-    <label>Inicio: <input type="date" id="start-date"></label>
-    <label>Fin: <input type="date" id="end-date"></label>
-
-    <button onclick="consultarAPI()">Consultar y Generar Excel</button>
-    <p id="status"></p>
-  </div>
-
-  <script src="script.js"></script>
-</body>
-</html>
