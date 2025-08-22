@@ -21,7 +21,7 @@
       border-radius: 12px;
       box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.15);
       width: 100%;
-      max-width: 380px;
+      max-width: 420px;
       text-align: center;
     }
 
@@ -34,7 +34,7 @@
     form {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 14px;
       align-items: center;
     }
 
@@ -45,14 +45,30 @@
       align-self: flex-start;
     }
 
-    input {
-      padding: 8px;
+    .coord-group {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .coord-group input, .coord-group select {
+      width: 60px;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    input[type="date"] {
+      padding: 6px;
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 14px;
       width: 100%;
       max-width: 280px;
-      box-sizing: border-box;
     }
 
     button {
@@ -77,11 +93,29 @@
   <div class="container">
     <h1>Descargar Datos Meteorológicos</h1>
     <form id="weatherForm">
-      <label>Latitud (° ′ ″):</label>
-      <input type="text" id="lat" placeholder="Ej: 8°36′0″N" required>
+      
+      <label>Latitud:</label>
+      <div class="coord-group">
+        <input type="number" id="lat_deg" placeholder="°" required>
+        <input type="number" id="lat_min" placeholder="′" required>
+        <input type="number" id="lat_sec" placeholder="″" required>
+        <select id="lat_dir">
+          <option value="N">N</option>
+          <option value="S">S</option>
+        </select>
+      </div>
 
-      <label>Longitud (° ′ ″):</label>
-      <input type="text" id="lon" placeholder="Ej: 73°48′0″O" required>
+      <label>Longitud:</label>
+      <div class="coord-group">
+        <input type="number" id="lon_deg" placeholder="°" required>
+        <input type="number" id="lon_min" placeholder="′" required>
+        <input type="number" id="lon_sec" placeholder="″" required>
+        <select id="lon_dir">
+          <option value="E">E</option>
+          <option value="W">W</option>
+          <option value="O">O</option>
+        </select>
+      </div>
 
       <label>Fecha inicio:</label>
       <input type="date" id="start" required>
@@ -97,17 +131,10 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
-    // Convierte coordenadas en formato DMS a decimal
-    function dmsToDecimal(dms) {
-      const regex = /(\d+)[°\s]+(\d+)?[′'\s]*([\d.]+)?[″"]?\s*([NSEW])?/i;
-      const parts = dms.match(regex);
-      if (!parts) return parseFloat(dms.replace(",", "."));
-      let deg = parseFloat(parts[1] || 0);
-      let min = parseFloat(parts[2] || 0);
-      let sec = parseFloat(parts[3] || 0);
-      let dir = (parts[4] || "").toUpperCase();
-
-      let decimal = deg + min / 60 + sec / 3600;
+    // Convierte grados, minutos, segundos y dirección a decimal
+    function dmsToDecimal(deg, min, sec, dir) {
+      let decimal = parseFloat(deg) + parseFloat(min) / 60 + parseFloat(sec) / 3600;
+      dir = dir.toUpperCase();
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
       return decimal;
     }
@@ -115,8 +142,20 @@
     document.getElementById("weatherForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
-      const lat = dmsToDecimal(document.getElementById("lat").value);
-      const lon = dmsToDecimal(document.getElementById("lon").value);
+      const lat = dmsToDecimal(
+        document.getElementById("lat_deg").value,
+        document.getElementById("lat_min").value,
+        document.getElementById("lat_sec").value,
+        document.getElementById("lat_dir").value
+      );
+
+      const lon = dmsToDecimal(
+        document.getElementById("lon_deg").value,
+        document.getElementById("lon_min").value,
+        document.getElementById("lon_sec").value,
+        document.getElementById("lon_dir").value
+      );
+
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
 
@@ -153,4 +192,3 @@
   </script>
 </body>
 </html>
-
