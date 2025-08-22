@@ -2,38 +2,33 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Consulta de Viento 🌬️</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de Viento</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1>🌬️ Consulta de Viento</h1>
+    <h1>Descargar datos de viento</h1>
+    <form id="windForm">
+      <label for="lat">Latitud (°):</label>
+      <input type="number" id="lat" step="any" required>
+      
+      <label for="lon">Longitud (°):</label>
+      <input type="number" id="lon" step="any" required>
+      
+      <label for="start">Fecha inicio:</label>
+      <input type="date" id="start" required>
+      
+      <label for="end">Fecha fin:</label>
+      <input type="date" id="end" required>
+      
+      <button type="submit">Descargar CSV</button>
+    </form>
+  </div>
 
-    <h2>📍 Coordenadas (GMS)</h2>
-    <div class="coords">
-      <div>
-        <label>Latitud:</label>
-        <input type="number" id="lat-g" placeholder="Grados">
-        <input type="number" id="lat-m" placeholder="Minutos">
-        <input type="number" id="lat-s" placeholder="Segundos">
-        <select id="lat-dir">
-          <option value="N">N</option>
-          <option value="S">S</option>
-        </select>
-      </div>
-      <div>
-        <label>Longitud:</label>
-        <input type="number" id="lon-g" placeholder="Grados">
-        <input type="number" id="lon-m" placeholder="Minutos">
-        <input type="number" id="lon-s" placeholder="Segundos">
-        <select id="lon-dir">
-          <option value="E">E</option>
-          <option value="O">O</option>
-          <option value="W">W</option>
-        </select>
-      </div>
-    </div>
+  <script src="script.js"></script>
+</body>
+</html>
 
     <h2>📅 Fechas</h2>
     <label>Inicio: <input type="date" id="start-date"></label>
