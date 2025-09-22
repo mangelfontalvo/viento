@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <title>Descargar Datos Meteorológicos</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -72,6 +78,15 @@
       max-width: 280px;
     }
 
+    .inline-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      margin-top: 6px;
+    }
+
     button {
       background: #4CAF50;
       color: white;
@@ -89,7 +104,7 @@
       transform: scale(1.05);
     }
 
-    /* NUEVO: caja con el nombre del lugar */
+    /* caja con el nombre del lugar */
     .place-box {
       display: none;
       margin-top: 16px;
@@ -128,13 +143,26 @@
       border-radius: 8px;
     }
 
-    /* NUEVO: título encima de la tabla */
     .table-title {
       margin-top: 16px;
       font-weight: bold;
       color: #333;
       font-size: 14px;
       text-align: left;
+    }
+
+    /* MAPA */
+    #map {
+      height: 350px;
+      width: 100%;
+      margin-top: 12px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    .map-help {
+      font-size: 12px;
+      color: #555;
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -166,6 +194,14 @@
         </select>
       </div>
 
+      <div class="inline-actions">
+        <button type="button" id="useMyLocation">📍 Usar mi ubicación</button>
+      </div>
+
+      <!-- MAPA -->
+      <div id="map"></div>
+      <div class="map-help">Tip: haz clic en el mapa o arrastra el marcador para ajustar la ubicación.</div>
+
       <label>Fecha inicio:</label>
       <input type="date" id="start" required>
 
@@ -175,7 +211,7 @@
       <button type="submit">🔍 Consultar Datos</button>
     </form>
 
-    <!-- NUEVO: nombre del lugar -->
+    <!-- nombre del lugar -->
     <div id="placeBox" class="place-box"></div>
 
     <div id="tableTitle" class="table-title" style="display:none;"></div>
@@ -186,36 +222,79 @@
     </div>
   </div>
 
-  <!-- Librería XLSX -->
+  <!-- Librerías -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
     let rows = [];
-    let lastPlaceName = ""; // NUEVO
+    let lastPlaceName = "";
 
-    // Convierte grados, minutos, segundos y dirección a decimal
+    // --- Utilidades coordenadas ---
     function dmsToDecimal(deg, min, sec, dir) {
-      let decimal = parseFloat(deg) + parseFloat(min) / 60 + parseFloat(sec) / 3600;
+      let decimal = parseFloat(deg || 0) + parseFloat(min || 0) / 60 + parseFloat(sec || 0) / 3600;
       dir = (dir || "").toUpperCase();
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
       return +decimal.toFixed(6);
     }
 
-    // NUEVO: Consulta Nominatim para obtener nombre del lugar
+    function decimalToDMS(value, isLat = true) {
+      const dirPos = isLat ? "N" : "E";
+      const dirNeg = isLat ? "S" : "W";
+      const dir = value >= 0 ? dirPos : dirNeg;
+      const abs = Math.abs(value);
+      const deg = Math.floor(abs);
+      const minFloat = (abs - deg) * 60;
+      const min = Math.floor(minFloat);
+      const sec = Math.round((minFloat - min) * 60 * 1000) / 1000;
+      return { deg, min, sec, dir };
+    }
+
+    function setInputsFromDecimal(lat, lon) {
+      const latD = decimalToDMS(lat, true);
+      const lonD = decimalToDMS(lon, false);
+      document.getElementById("lat_deg").value = latD.deg;
+      document.getElementById("lat_min").value = latD.min;
+      document.getElementById("lat_sec").value = latD.sec;
+      document.getElementById("lat_dir").value = latD.dir;
+
+      // Para longitudes oeste en tu selector aceptas W/O: dejamos W por consistencia
+      document.getElementById("lon_deg").value = lonD.deg;
+      document.getElementById("lon_min").value = lonD.min;
+      document.getElementById("lon_sec").value = lonD.sec;
+      document.getElementById("lon_dir").value = (lonD.dir === "W") ? "W" : "E";
+    }
+
+    function getDecimalsFromInputs() {
+      const lat = dmsToDecimal(
+        document.getElementById("lat_deg").value,
+        document.getElementById("lat_min").value,
+        document.getElementById("lat_sec").value,
+        document.getElementById("lat_dir").value
+      );
+      const lon = dmsToDecimal(
+        document.getElementById("lon_deg").value,
+        document.getElementById("lon_min").value,
+        document.getElementById("lon_sec").value,
+        document.getElementById("lon_dir").value
+      );
+      return { lat, lon };
+    }
+
+    // --- Geocodificación inversa ---
     async function getPlaceName(lat, lon) {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es`;
-      // En navegador no puedes definir User-Agent; Nominatim usa Referer automáticamente.
       const res = await fetch(url, { headers: { "Accept": "application/json" } });
       if (!res.ok) throw new Error("No se pudo obtener el nombre del lugar");
       const data = await res.json();
-
       const addr = data.address || {};
       const principal = addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.state;
       const secundario = addr.state || addr.region || addr.country;
       return (principal ? `${principal}${secundario ? ", " + secundario : ""}` : data.display_name);
     }
 
-    // NUEVO: util para hacer un slug para el nombre del archivo
     function slugify(str) {
       return (str || "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -224,40 +303,91 @@
         .replace(/\s+/g, "_");
     }
 
-    document.getElementById("weatherForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
+    // --- MAPA (Leaflet) ---
+    // centro inicial: Colombia
+    const initialLat = 4.6, initialLon = -74.1, initialZoom = 6;
+    const map = L.map('map').setView([initialLat, initialLon], initialZoom);
 
-      const lat = dmsToDecimal(
-        document.getElementById("lat_deg").value,
-        document.getElementById("lat_min").value,
-        document.getElementById("lat_sec").value,
-        document.getElementById("lat_dir").value
-      );
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
 
-      const lon = dmsToDecimal(
-        document.getElementById("lon_deg").value,
-        document.getElementById("lon_min").value,
-        document.getElementById("lon_sec").value,
-        document.getElementById("lon_dir").value
-      );
+    const marker = L.marker([initialLat, initialLon], { draggable: true }).addTo(map);
 
-      const start = document.getElementById("start").value;
-      const end = document.getElementById("end").value;
+    // Al iniciar, sincroniza DMS con el marcador
+    setInputsFromDecimal(initialLat, initialLon);
 
-      // NUEVO: obtener y mostrar nombre del lugar antes de llamar Open-Meteo
-      const placeBox = document.getElementById("placeBox");
-      placeBox.style.display = "none";
-      placeBox.textContent = "";
-
+    const placeBox = document.getElementById("placeBox");
+    async function updatePlaceBox(lat, lon) {
       try {
         lastPlaceName = await getPlaceName(lat, lon);
         placeBox.textContent = `📍 Lugar detectado: ${lastPlaceName}  (Lat: ${lat}, Lon: ${lon})`;
         placeBox.style.display = "block";
-      } catch (geErr) {
-        // Si falla, seguimos con el clima igualmente
-        console.warn(geErr);
+      } catch (e) {
+        console.warn(e);
         lastPlaceName = "";
+        placeBox.style.display = "none";
       }
+    }
+    // Obtén nombre inicial
+    updatePlaceBox(initialLat, initialLon);
+
+    // Click en el mapa: mover marcador y actualizar inputs + lugar
+    map.on('click', async (e) => {
+      const { lat, lng } = e.latlng;
+      marker.setLatLng([lat, lng]);
+      setInputsFromDecimal(lat, lng);
+      await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
+    });
+
+    // Arrastrar marcador: al soltar, actualizar inputs + lugar
+    marker.on('dragend', async () => {
+      const { lat, lng } = marker.getLatLng();
+      setInputsFromDecimal(lat, lng);
+      await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
+    });
+
+    // Cambios en inputs DMS: recolocar marcador
+    const dmsFields = ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"];
+    dmsFields.forEach(id => {
+      document.getElementById(id).addEventListener("change", async () => {
+        const { lat, lon } = getDecimalsFromInputs();
+        marker.setLatLng([lat, lon]);
+        map.setView([lat, lon], map.getZoom());
+        await updatePlaceBox(lat, lon);
+      });
+    });
+
+    // Usar mi ubicación (geolocalización del navegador)
+    document.getElementById("useMyLocation").addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        alert("Geolocalización no soportada por este navegador.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = +pos.coords.latitude.toFixed(6);
+        const lon = +pos.coords.longitude.toFixed(6);
+        map.setView([lat, lon], 14);
+        marker.setLatLng([lat, lon]);
+        setInputsFromDecimal(lat, lon);
+        await updatePlaceBox(lat, lon);
+      }, (err) => {
+        console.warn(err);
+        alert("No se pudo obtener la ubicación.");
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+
+    // --- Formulario: Open-Meteo ---
+    document.getElementById("weatherForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+
+      const { lat, lon } = getDecimalsFromInputs();
+      const start = document.getElementById("start").value;
+      const end = document.getElementById("end").value;
+
+      // Refresca el nombre de lugar (por si cambió y no se actualizó)
+      await updatePlaceBox(lat, lon);
 
       const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
 
