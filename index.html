@@ -305,6 +305,19 @@
     marker.on('dragend',async()=>{const {lat,lng}=marker.getLatLng();setInputsFromDecimal(lat,lng);await updatePlaceBox(lat,lng);});
     useMyLocation.onclick=()=>{if(navigator.geolocation)navigator.geolocation.getCurrentPosition(async p=>{const lat=+p.coords.latitude.toFixed(6),lon=+p.coords.longitude.toFixed(6);map.setView([lat,lon],14);marker.setLatLng([lat,lon]);setInputsFromDecimal(lat,lon);await updatePlaceBox(lat,lon);},err=>alert("No se pudo obtener ubicación:"+err.message),{enableHighAccuracy:true});};
 
+    // --- actualizar mapa al cambiar inputs ---
+    function updateMapFromInputs() {
+      const { lat, lon } = getDecimalsFromInputs();
+      if (isNaN(lat) || isNaN(lon)) return;
+      marker.setLatLng([lat, lon]);
+      map.setView([lat, lon], map.getZoom());
+      updatePlaceBox(lat, lon);
+    }
+    ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"].forEach(id=>{
+      document.getElementById(id).addEventListener("input", updateMapFromInputs);
+      document.getElementById(id).addEventListener("change", updateMapFromInputs);
+    });
+
     // --- rosa de vientos ---
     const SECTORS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     const BIN_EDGES=[0,2,4,6,8,10,12,Infinity];
@@ -361,7 +374,7 @@
       const data=await fetch(url).then(r=>r.json());
       if(!data.hourly){alert("No se encontraron datos");return;}
       rows=[["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
-      const sp=[],di=[];
+      const sp=[],di[];
       for(let i=0;i<data.hourly.time.length;i++){
         const v=data.hourly.windspeed_10m[i]*0.27778,d=data.hourly.winddirection_10m[i];
         rows.push([data.hourly.time[i],v.toFixed(2),d,data.hourly.temperature_2m[i],data.hourly.relative_humidity_2m[i],(data.hourly.surface_pressure[i]*0.75006).toFixed(2),data.hourly.precipitation[i]]);
@@ -382,4 +395,3 @@
   </script>
 </body>
 </html>
-
