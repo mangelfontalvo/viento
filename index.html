@@ -89,6 +89,19 @@
       transform: scale(1.05);
     }
 
+    /* NUEVO: caja con el nombre del lugar */
+    .place-box {
+      display: none;
+      margin-top: 16px;
+      padding: 10px 12px;
+      background: #f5f7ff;
+      border: 1px solid #dbe3ff;
+      border-radius: 8px;
+      color: #2c3e50;
+      font-size: 14px;
+      text-align: left;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -113,6 +126,15 @@
       margin-top: 20px;
       border: 1px solid #ddd;
       border-radius: 8px;
+    }
+
+    /* NUEVO: título encima de la tabla */
+    .table-title {
+      margin-top: 16px;
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+      text-align: left;
     }
   </style>
 </head>
@@ -153,6 +175,11 @@
       <button type="submit">🔍 Consultar Datos</button>
     </form>
 
+    <!-- NUEVO: nombre del lugar -->
+    <div id="placeBox" class="place-box"></div>
+
+    <div id="tableTitle" class="table-title" style="display:none;"></div>
+
     <div class="table-container" id="tableContainer" style="display:none;">
       <table id="dataTable"></table>
       <button id="downloadBtn">📥 Descargar Excel</button>
@@ -164,13 +191,37 @@
 
   <script>
     let rows = [];
+    let lastPlaceName = ""; // NUEVO
 
     // Convierte grados, minutos, segundos y dirección a decimal
     function dmsToDecimal(deg, min, sec, dir) {
       let decimal = parseFloat(deg) + parseFloat(min) / 60 + parseFloat(sec) / 3600;
-      dir = dir.toUpperCase();
+      dir = (dir || "").toUpperCase();
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
       return +decimal.toFixed(6);
+    }
+
+    // NUEVO: Consulta Nominatim para obtener nombre del lugar
+    async function getPlaceName(lat, lon) {
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es`;
+      // En navegador no puedes definir User-Agent; Nominatim usa Referer automáticamente.
+      const res = await fetch(url, { headers: { "Accept": "application/json" } });
+      if (!res.ok) throw new Error("No se pudo obtener el nombre del lugar");
+      const data = await res.json();
+
+      const addr = data.address || {};
+      const principal = addr.city || addr.town || addr.village || addr.municipality || addr.county || addr.state;
+      const secundario = addr.state || addr.region || addr.country;
+      return (principal ? `${principal}${secundario ? ", " + secundario : ""}` : data.display_name);
+    }
+
+    // NUEVO: util para hacer un slug para el nombre del archivo
+    function slugify(str) {
+      return (str || "")
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9\s_-]/g, "")
+        .trim()
+        .replace(/\s+/g, "_");
     }
 
     document.getElementById("weatherForm").addEventListener("submit", async function (e) {
@@ -192,6 +243,21 @@
 
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
+
+      // NUEVO: obtener y mostrar nombre del lugar antes de llamar Open-Meteo
+      const placeBox = document.getElementById("placeBox");
+      placeBox.style.display = "none";
+      placeBox.textContent = "";
+
+      try {
+        lastPlaceName = await getPlaceName(lat, lon);
+        placeBox.textContent = `📍 Lugar detectado: ${lastPlaceName}  (Lat: ${lat}, Lon: ${lon})`;
+        placeBox.style.display = "block";
+      } catch (geErr) {
+        // Si falla, seguimos con el clima igualmente
+        console.warn(geErr);
+        lastPlaceName = "";
+      }
 
       const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
 
@@ -220,7 +286,12 @@
           ]);
         }
 
-        // Mostrar tabla en pantalla
+        // Mostrar título y tabla
+        const tableTitle = document.getElementById("tableTitle");
+        const lugarTexto = lastPlaceName ? ` para ${lastPlaceName}` : "";
+        tableTitle.textContent = `Datos meteorológicos${lugarTexto} (${start} a ${end})`;
+        tableTitle.style.display = "block";
+
         renderTable(rows);
 
         document.getElementById("tableContainer").style.display = "block";
@@ -228,7 +299,13 @@
           const ws = XLSX.utils.aoa_to_sheet(rows);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Meteo");
-          XLSX.writeFile(wb, `datos_meteo_${start}_a_${end}.xlsx`);
+
+          const placeSlug = slugify(lastPlaceName);
+          const fileName = placeSlug
+            ? `datos_meteo_${placeSlug}_${start}_a_${end}.xlsx`
+            : `datos_meteo_${start}_a_${end}.xlsx`;
+
+          XLSX.writeFile(wb, fileName);
         };
       } catch (err) {
         console.error(err);
