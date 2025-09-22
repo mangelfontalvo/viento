@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Descargar Datos Meteorológicos</title>
 
-  <!-- Leaflet -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -57,7 +57,7 @@
       flex-wrap: wrap;
     }
     .coord-group input, .coord-group select {
-      width: 60px;
+      width: 70px;
       padding: 6px;
       border: 1px solid #ccc;
       border-radius: 6px;
@@ -147,7 +147,6 @@
       color: #555;
       margin-top: 6px;
     }
-
     /* ROSA DE VIENTOS */
     .rose-wrap {
       margin-top: 22px;
@@ -155,6 +154,7 @@
       border-radius: 10px;
       padding: 10px;
       background: #fafafa;
+      overflow: visible; /* evitar recortes */
     }
     .rose-title {
       text-align: left;
@@ -165,7 +165,8 @@
     }
     #windRose {
       width: 100%;
-      height: 420px;
+      height: 460px; /* un poco más alto para móviles angostos */
+      overflow: visible;
     }
     .calm-note {
       text-align: right;
@@ -178,12 +179,14 @@
 <body>
   <div class="container">
     <h1>Descargar Datos Meteorológicos</h1>
+
     <form id="weatherForm">
       <label>Latitud:</label>
       <div class="coord-group">
-        <input type="number" id="lat_deg" placeholder="°" required>
-        <input type="number" id="lat_min" placeholder="′" required>
-        <input type="number" id="lat_sec" placeholder="″" required>
+        <!-- límites para evitar valores fuera de rango -->
+        <input type="number" id="lat_deg" placeholder="°" required min="0" max="90" step="1">
+        <input type="number" id="lat_min" placeholder="′" required min="0" max="59" step="1">
+        <input type="number" id="lat_sec" placeholder="″" required min="0" max="59" step="1">
         <select id="lat_dir">
           <option value="N">N</option>
           <option value="S">S</option>
@@ -192,9 +195,9 @@
 
       <label>Longitud:</label>
       <div class="coord-group">
-        <input type="number" id="lon_deg" placeholder="°" required>
-        <input type="number" id="lon_min" placeholder="′" required>
-        <input type="number" id="lon_sec" placeholder="″" required>
+        <input type="number" id="lon_deg" placeholder="°" required min="0" max="180" step="1">
+        <input type="number" id="lon_min" placeholder="′" required min="0" max="59" step="1">
+        <input type="number" id="lon_sec" placeholder="″" required min="0" max="59" step="1">
         <select id="lon_dir">
           <option value="E">E</option>
           <option value="W">W</option>
@@ -240,12 +243,12 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- Plotly para rosa de vientos -->
   <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
 
   <script>
     let rows = [];
     let lastPlaceName = "";
+    let roseStore = { speeds: null, dirs: null }; // guarda datos para redibujar
 
     // --- Utilidades coordenadas ---
     function dmsToDecimal(deg, min, sec, dir) {
@@ -254,16 +257,21 @@
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
       return +decimal.toFixed(6);
     }
-   function decimalToDMS(value, isLat = true) {
-  const dirPos = isLat ? "N" : "E";
-  const dirNeg = isLat ? "S" : "W";
-  const dir = value >= 0 ? dirPos : dirNeg;
-  const abs = Math.abs(value);
-  const deg = Math.floor(abs);
-  const minFloat = (abs - deg) * 60;
-  const min = Math.floor(minFloat);
-  const sec = Math.round((minFloat - min) * 60); // 👈 redondea al segundo entero
-  return { deg, min, sec, dir };
+    function decimalToDMS(value, isLat = true) {
+      const dirPos = isLat ? "N" : "E";
+      const dirNeg = isLat ? "S" : "W";
+      const dir = value >= 0 ? dirPos : dirNeg;
+      const abs = Math.abs(value);
+      const deg = Math.floor(abs);
+      const minFloat = (abs - deg) * 60;
+      const min = Math.floor(minFloat);
+      // ⬇️ segundos enteros obligatorios
+      const sec = Math.round((minFloat - min) * 60);
+      // Normalización por si redondea a 60
+      let nDeg = deg, nMin = min, nSec = sec;
+      if (nSec === 60) { nSec = 0; nMin += 1; }
+      if (nMin === 60) { nMin = 0; nDeg += 1; }
+      return { deg: nDeg, min: nMin, sec: nSec, dir };
     }
     function setInputsFromDecimal(lat, lon) {
       const latD = decimalToDMS(lat, true);
@@ -380,7 +388,6 @@
     const BIN_EDGES = [0, 2, 4, 6, 8, 10, 12, Infinity]; // m/s
     const BIN_LABELS = ['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
     function dirToSectorIndex(deg) {
-      // 0° = N. Sectores de 22.5°. Redondeo al más cercano.
       const idx = Math.round((deg % 360) / 22.5) % 16;
       return idx;
     }
@@ -388,18 +395,14 @@
       const nSectors = SECTORS.length;
       const nBins = BIN_EDGES.length - 1;
       const counts = Array.from({ length: nBins }, () => Array(nSectors).fill(0));
-      let total = 0;
-      let calm = 0;
+      let total = 0, calm = 0;
 
       for (let i = 0; i < dirs_deg.length; i++) {
         const dir = dirs_deg[i];
-        let v = speeds_mps[i];
+        const v = speeds_mps[i];
         if (v == null || dir == null || isNaN(v) || isNaN(dir)) continue;
-        // calmas
         if (v < 0.5) { calm++; total++; continue; }
-
         const sector = dirToSectorIndex(dir);
-        // bin de velocidad
         let b = nBins - 1;
         for (let j = 0; j < nBins; j++) {
           if (v >= BIN_EDGES[j] && v < BIN_EDGES[j+1]) { b = j; break; }
@@ -408,13 +411,10 @@
         total++;
       }
 
-      // convertir a porcentajes por sector (frecuencia respecto al total)
       const traces = [];
       for (let b = 0; b < nBins; b++) {
         const r = new Array(nSectors).fill(0);
-        for (let s = 0; s < nSectors; s++) {
-          r[s] = total ? (counts[b][s] / total) * 100 : 0;
-        }
+        for (let s = 0; s < nSectors; s++) r[s] = total ? (counts[b][s] / total) * 100 : 0;
         traces.push({
           type: 'barpolar',
           r,
@@ -426,22 +426,33 @@
 
       const calmPct = total ? (calm / total * 100) : 0;
 
+      // Márgenes adaptativos según ancho disponible
+      const el = document.getElementById('windRose');
+      const w = (el && el.clientWidth) ? el.clientWidth : window.innerWidth;
+      let marginConfig;
+      if (w < 600) {
+        marginConfig = { l: 40, r: 40, t: 40, b: 60 };
+      } else if (w < 900) {
+        marginConfig = { l: 50, r: 60, t: 50, b: 70 };
+      } else {
+        marginConfig = { l: 60, r: 80, t: 60, b: 80 };
+      }
+
       Plotly.newPlot('windRose', traces, {
         title: '',
         showlegend: true,
-        legend: { orientation: 'h' },
-        margin: { l: 20, r: 20, t: 10, b: 20 },
+        legend: { orientation: 'h', x: 0, y: -0.15 },
+        margin: marginConfig,
         polar: {
           barmode: 'stack',
           bargap: 0,
           radialaxis: { ticksuffix: '%', angle: 0, dtick: 5, gridcolor: '#eee' },
-          angularaxis: { direction: 'clockwise' }
+          angularaxis: { direction: 'clockwise', rotation: 90 }
         }
       }, { responsive: true });
 
-      // título y nota de calma
-      const calmNote = document.getElementById('calmNote');
-      calmNote.textContent = `Calmas (<0.5 m/s): ${calmPct.toFixed(1)}%`;
+      document.getElementById('calmNote').textContent =
+        `Calmas (<0.5 m/s): ${calmPct.toFixed(1)}%`;
     }
 
     // --- Formulario: Open-Meteo + Tabla + Rosa ---
@@ -486,8 +497,7 @@
             data.hourly.precipitation[i]
           ]);
 
-          // Para la rosa (ignora nulos/undefined)
-          if (speed_mps != null && !isNaN(speed_mps) && dir_deg != null && !isNaN(dir_deg)) {
+          if (!isNaN(speed_mps) && !isNaN(dir_deg)) {
             speeds_mps.push(speed_mps);
             dirs_deg.push(dir_deg);
           }
@@ -503,10 +513,13 @@
         renderTable(rows);
         document.getElementById("tableContainer").style.display = "block";
 
-        // Render rosa
+        // Guardar y render rosa
+        roseStore.speeds = speeds_mps.slice();
+        roseStore.dirs = dirs_deg.slice();
+
         document.getElementById("roseWrap").style.display = "block";
         document.getElementById("roseTitle").textContent = `Rosa de vientos${lugarTexto} (${start} a ${end})`;
-        buildWindRose(speeds_mps, dirs_deg);
+        buildWindRose(roseStore.speeds, roseStore.dirs);
 
         // Descargar Excel
         document.getElementById("downloadBtn").onclick = function() {
@@ -540,6 +553,22 @@
         table.appendChild(tr);
       });
     }
+
+    // --- Redibujado automático de la rosa (debounce) ---
+    function debounce(fn, wait = 150) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), wait);
+      };
+    }
+    window.addEventListener('resize', debounce(() => {
+      if (roseStore.speeds && roseStore.dirs) {
+        buildWindRose(roseStore.speeds, roseStore.dirs);
+      }
+    }, 150));
   </script>
 </body>
 </html>
+
+
