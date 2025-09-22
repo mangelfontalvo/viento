@@ -330,22 +330,71 @@
     }
     legendPos.addEventListener("change",()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
 
-    // --- formulario ---
-    weatherForm.addEventListener("submit",async e=>{
-      e.preventDefault();
-      const {lat,lon}=getDecimalsFromInputs(),start=start.value,end=end.value;
-      await updatePlaceBox(lat,lon);
-      const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
-      const data=await fetch(url).then(r=>r.json());
-      if(!data.hourly){alert("No se encontraron datos");return;}
-      rows=[["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
-      const sp=[],di=[];
-      for(let i=0;i<data.hourly.time.length;i++){const v=data.hourly.windspeed_10m[i]*0.27778,d=data.hourly.winddirection_10m[i];rows.push([data.hourly.time[i],v.toFixed(2),d,data.hourly.temperature_2m[i],data.hourly.relative_humidity_2m[i],(data.hourly.surface_pressure[i]*0.75006).toFixed(2),data.hourly.precipitation[i]]);if(!isNaN(v)&&!isNaN(d)){sp.push(v);di.push(d);}}
-      tableTitle.textContent=`Datos meteorológicos para ${lastPlaceName} (${start} a ${end})`;tableTitle.style.display="block";
-      renderTable(rows);tableContainer.style.display="block";
-      roseStore.speeds=sp;roseStore.dirs=di;roseWrap.style.display="block";roseTitle.textContent=`Rosa de vientos para ${lastPlaceName} (${start} a ${end})`;buildWindRose(sp,di);
-      downloadBtn.onclick=()=>{const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Meteo");XLSX.writeFile(wb,`datos_meteo_${start}_a_${end}.xlsx`);};
-    });
+  // --- formulario ---
+weatherForm.addEventListener("submit", async e => {
+  e.preventDefault();
+
+  // Obtener coordenadas
+  const { lat, lon } = getDecimalsFromInputs();
+
+  // Obtener fechas desde los inputs
+  const startDate = document.getElementById("start").value;
+  const endDate   = document.getElementById("end").value;
+
+  // Actualizar nombre de lugar
+  await updatePlaceBox(lat, lon);
+
+  // Construir URL de consulta
+  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
+
+  // Llamar API
+  const data = await fetch(url).then(r => r.json());
+  if (!data.hourly) {
+    alert("No se encontraron datos");
+    return;
+  }
+
+  // Construir filas para tabla
+  rows = [["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
+  const sp = [], di = [];
+
+  for (let i = 0; i < data.hourly.time.length; i++) {
+    const v = data.hourly.windspeed_10m[i] * 0.27778;
+    const d = data.hourly.winddirection_10m[i];
+    rows.push([
+      data.hourly.time[i],
+      v.toFixed(2),
+      d,
+      data.hourly.temperature_2m[i],
+      data.hourly.relative_humidity_2m[i],
+      (data.hourly.surface_pressure[i] * 0.75006).toFixed(2),
+      data.hourly.precipitation[i]
+    ]);
+    if (!isNaN(v) && !isNaN(d)) { sp.push(v); di.push(d); }
+  }
+
+  // Mostrar tabla
+  tableTitle.textContent = `Datos meteorológicos para ${lastPlaceName} (${startDate} a ${endDate})`;
+  tableTitle.style.display = "block";
+  renderTable(rows);
+  tableContainer.style.display = "block";
+
+  // Mostrar rosa de vientos
+  roseStore.speeds = sp;
+  roseStore.dirs = di;
+  roseWrap.style.display = "block";
+  roseTitle.textContent = `Rosa de vientos para ${lastPlaceName} (${startDate} a ${endDate})`;
+  buildWindRose(sp, di);
+
+  // Descargar Excel
+  downloadBtn.onclick = () => {
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Meteo");
+    XLSX.writeFile(wb, `datos_meteo_${startDate}_a_${endDate}.xlsx`);
+  };
+});
+
     function renderTable(data){dataTable.innerHTML="";data.forEach((r,i)=>{const tr=document.createElement("tr");r.forEach(c=>{const td=document.createElement(i===0?"th":"td");td.textContent=c;tr.appendChild(td);});dataTable.appendChild(tr);});}
     window.addEventListener('resize',()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
   </script>
