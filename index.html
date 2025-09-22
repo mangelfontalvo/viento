@@ -1,57 +1,54 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Descargar Datos Meteorológicos</title>
+
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
+
   <style>
     body {
       font-family: Arial, sans-serif;
       background: linear-gradient(to right, #74ebd5, #ACB6E5);
       margin: 0;
-      padding: 0;
+      padding: 30px 10px;
       display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
-      padding: 30px 10px;
     }
-
     .container {
       background: #fff;
       padding: 25px 35px;
       border-radius: 12px;
-      box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
       width: 100%;
-      max-width: 900px;
+      max-width: 980px;
       text-align: center;
     }
-
     .container h1 {
       margin-bottom: 20px;
       font-size: 20px;
       color: #333;
     }
-
     form {
       display: flex;
       flex-direction: column;
       gap: 14px;
       align-items: center;
     }
-
     label {
       font-weight: bold;
       color: #444;
       font-size: 14px;
       align-self: flex-start;
     }
-
     .coord-group {
       display: flex;
       gap: 6px;
@@ -59,7 +56,6 @@
       align-items: center;
       flex-wrap: wrap;
     }
-
     .coord-group input, .coord-group select {
       width: 60px;
       padding: 6px;
@@ -68,7 +64,6 @@
       font-size: 13px;
       text-align: center;
     }
-
     input[type="date"] {
       padding: 6px;
       border: 1px solid #ccc;
@@ -77,7 +72,6 @@
       width: 100%;
       max-width: 280px;
     }
-
     .inline-actions {
       display: flex;
       gap: 10px;
@@ -86,25 +80,21 @@
       justify-content: center;
       margin-top: 6px;
     }
-
     button {
       background: #4CAF50;
-      color: white;
+      color: #fff;
       border: none;
       padding: 8px 16px;
       border-radius: 6px;
       font-size: 14px;
       cursor: pointer;
-      transition: background 0.3s ease, transform 0.2s ease;
+      transition: background .3s ease, transform .2s ease;
       margin-top: 15px;
     }
-
     button:hover {
       background: #3e8e41;
       transform: scale(1.05);
     }
-
-    /* caja con el nombre del lugar */
     .place-box {
       display: none;
       margin-top: 16px;
@@ -116,33 +106,6 @@
       font-size: 14px;
       text-align: left;
     }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 25px;
-      font-size: 13px;
-    }
-
-    table th, table td {
-      border: 1px solid #ddd;
-      padding: 6px;
-      text-align: center;
-    }
-
-    table th {
-      background: #4CAF50;
-      color: white;
-    }
-
-    .table-container {
-      max-height: 400px;
-      overflow-y: auto;
-      margin-top: 20px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-    }
-
     .table-title {
       margin-top: 16px;
       font-weight: bold;
@@ -150,7 +113,27 @@
       font-size: 14px;
       text-align: left;
     }
-
+    .table-container {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: center;
+    }
+    table th {
+      background: #4CAF50;
+      color: #fff;
+    }
     /* MAPA */
     #map {
       height: 350px;
@@ -164,13 +147,38 @@
       color: #555;
       margin-top: 6px;
     }
+
+    /* ROSA DE VIENTOS */
+    .rose-wrap {
+      margin-top: 22px;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fafafa;
+    }
+    .rose-title {
+      text-align: left;
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+    #windRose {
+      width: 100%;
+      height: 420px;
+    }
+    .calm-note {
+      text-align: right;
+      font-size: 12px;
+      color: #666;
+      margin-top: -6px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Descargar Datos Meteorológicos</h1>
     <form id="weatherForm">
-      
       <label>Latitud:</label>
       <div class="coord-group">
         <input type="number" id="lat_deg" placeholder="°" required>
@@ -198,7 +206,6 @@
         <button type="button" id="useMyLocation">📍 Usar mi ubicación</button>
       </div>
 
-      <!-- MAPA -->
       <div id="map"></div>
       <div class="map-help">Tip: haz clic en el mapa o arrastra el marcador para ajustar la ubicación.</div>
 
@@ -211,10 +218,16 @@
       <button type="submit">🔍 Consultar Datos</button>
     </form>
 
-    <!-- nombre del lugar -->
     <div id="placeBox" class="place-box"></div>
 
     <div id="tableTitle" class="table-title" style="display:none;"></div>
+
+    <!-- ROSA DE VIENTOS -->
+    <div class="rose-wrap" id="roseWrap" style="display:none;">
+      <div class="rose-title" id="roseTitle">Rosa de vientos</div>
+      <div id="windRose"></div>
+      <div class="calm-note" id="calmNote"></div>
+    </div>
 
     <div class="table-container" id="tableContainer" style="display:none;">
       <table id="dataTable"></table>
@@ -227,6 +240,8 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Plotly para rosa de vientos -->
+  <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
 
   <script>
     let rows = [];
@@ -239,19 +254,17 @@
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
       return +decimal.toFixed(6);
     }
-
-    function decimalToDMS(value, isLat = true) {
-      const dirPos = isLat ? "N" : "E";
-      const dirNeg = isLat ? "S" : "W";
-      const dir = value >= 0 ? dirPos : dirNeg;
-      const abs = Math.abs(value);
-      const deg = Math.floor(abs);
-      const minFloat = (abs - deg) * 60;
-      const min = Math.floor(minFloat);
-      const sec = Math.round((minFloat - min) * 60 * 1000) / 1000;
-      return { deg, min, sec, dir };
+   function decimalToDMS(value, isLat = true) {
+  const dirPos = isLat ? "N" : "E";
+  const dirNeg = isLat ? "S" : "W";
+  const dir = value >= 0 ? dirPos : dirNeg;
+  const abs = Math.abs(value);
+  const deg = Math.floor(abs);
+  const minFloat = (abs - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = Math.round((minFloat - min) * 60); // 👈 redondea al segundo entero
+  return { deg, min, sec, dir };
     }
-
     function setInputsFromDecimal(lat, lon) {
       const latD = decimalToDMS(lat, true);
       const lonD = decimalToDMS(lon, false);
@@ -260,13 +273,11 @@
       document.getElementById("lat_sec").value = latD.sec;
       document.getElementById("lat_dir").value = latD.dir;
 
-      // Para longitudes oeste en tu selector aceptas W/O: dejamos W por consistencia
       document.getElementById("lon_deg").value = lonD.deg;
       document.getElementById("lon_min").value = lonD.min;
       document.getElementById("lon_sec").value = lonD.sec;
       document.getElementById("lon_dir").value = (lonD.dir === "W") ? "W" : "E";
     }
-
     function getDecimalsFromInputs() {
       const lat = dmsToDecimal(
         document.getElementById("lat_deg").value,
@@ -294,7 +305,6 @@
       const secundario = addr.state || addr.region || addr.country;
       return (principal ? `${principal}${secundario ? ", " + secundario : ""}` : data.display_name);
     }
-
     function slugify(str) {
       return (str || "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -304,18 +314,13 @@
     }
 
     // --- MAPA (Leaflet) ---
-    // centro inicial: Colombia
-    const initialLat = 4.6, initialLon = -74.1, initialZoom = 6;
+    const initialLat = 4.6, initialLon = -74.1, initialZoom = 6; // Colombia
     const map = L.map('map').setView([initialLat, initialLon], initialZoom);
-
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap'
     }).addTo(map);
-
     const marker = L.marker([initialLat, initialLon], { draggable: true }).addTo(map);
-
-    // Al iniciar, sincroniza DMS con el marcador
     setInputsFromDecimal(initialLat, initialLon);
 
     const placeBox = document.getElementById("placeBox");
@@ -330,25 +335,19 @@
         placeBox.style.display = "none";
       }
     }
-    // Obtén nombre inicial
     updatePlaceBox(initialLat, initialLon);
 
-    // Click en el mapa: mover marcador y actualizar inputs + lugar
     map.on('click', async (e) => {
       const { lat, lng } = e.latlng;
       marker.setLatLng([lat, lng]);
       setInputsFromDecimal(lat, lng);
       await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
     });
-
-    // Arrastrar marcador: al soltar, actualizar inputs + lugar
     marker.on('dragend', async () => {
       const { lat, lng } = marker.getLatLng();
       setInputsFromDecimal(lat, lng);
       await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
     });
-
-    // Cambios en inputs DMS: recolocar marcador
     const dmsFields = ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"];
     dmsFields.forEach(id => {
       document.getElementById(id).addEventListener("change", async () => {
@@ -358,8 +357,6 @@
         await updatePlaceBox(lat, lon);
       });
     });
-
-    // Usar mi ubicación (geolocalización del navegador)
     document.getElementById("useMyLocation").addEventListener("click", () => {
       if (!navigator.geolocation) {
         alert("Geolocalización no soportada por este navegador.");
@@ -378,7 +375,76 @@
       }, { enableHighAccuracy: true, timeout: 10000 });
     });
 
-    // --- Formulario: Open-Meteo ---
+    // --- ROSA DE VIENTOS ---
+    const SECTORS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const BIN_EDGES = [0, 2, 4, 6, 8, 10, 12, Infinity]; // m/s
+    const BIN_LABELS = ['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
+    function dirToSectorIndex(deg) {
+      // 0° = N. Sectores de 22.5°. Redondeo al más cercano.
+      const idx = Math.round((deg % 360) / 22.5) % 16;
+      return idx;
+    }
+    function buildWindRose(speeds_mps, dirs_deg) {
+      const nSectors = SECTORS.length;
+      const nBins = BIN_EDGES.length - 1;
+      const counts = Array.from({ length: nBins }, () => Array(nSectors).fill(0));
+      let total = 0;
+      let calm = 0;
+
+      for (let i = 0; i < dirs_deg.length; i++) {
+        const dir = dirs_deg[i];
+        let v = speeds_mps[i];
+        if (v == null || dir == null || isNaN(v) || isNaN(dir)) continue;
+        // calmas
+        if (v < 0.5) { calm++; total++; continue; }
+
+        const sector = dirToSectorIndex(dir);
+        // bin de velocidad
+        let b = nBins - 1;
+        for (let j = 0; j < nBins; j++) {
+          if (v >= BIN_EDGES[j] && v < BIN_EDGES[j+1]) { b = j; break; }
+        }
+        counts[b][sector] += 1;
+        total++;
+      }
+
+      // convertir a porcentajes por sector (frecuencia respecto al total)
+      const traces = [];
+      for (let b = 0; b < nBins; b++) {
+        const r = new Array(nSectors).fill(0);
+        for (let s = 0; s < nSectors; s++) {
+          r[s] = total ? (counts[b][s] / total) * 100 : 0;
+        }
+        traces.push({
+          type: 'barpolar',
+          r,
+          theta: SECTORS,
+          name: `${BIN_LABELS[b]} m/s`,
+          hovertemplate: '%{theta}: %{r:.2f}%<extra>'+BIN_LABELS[b]+' m/s</extra>'
+        });
+      }
+
+      const calmPct = total ? (calm / total * 100) : 0;
+
+      Plotly.newPlot('windRose', traces, {
+        title: '',
+        showlegend: true,
+        legend: { orientation: 'h' },
+        margin: { l: 20, r: 20, t: 10, b: 20 },
+        polar: {
+          barmode: 'stack',
+          bargap: 0,
+          radialaxis: { ticksuffix: '%', angle: 0, dtick: 5, gridcolor: '#eee' },
+          angularaxis: { direction: 'clockwise' }
+        }
+      }, { responsive: true });
+
+      // título y nota de calma
+      const calmNote = document.getElementById('calmNote');
+      calmNote.textContent = `Calmas (<0.5 m/s): ${calmPct.toFixed(1)}%`;
+    }
+
+    // --- Formulario: Open-Meteo + Tabla + Rosa ---
     document.getElementById("weatherForm").addEventListener("submit", async function (e) {
       e.preventDefault();
 
@@ -386,7 +452,6 @@
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
 
-      // Refresca el nombre de lugar (por si cambió y no se actualizó)
       await updatePlaceBox(lat, lon);
 
       const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
@@ -402,41 +467,59 @@
 
         // Encabezados
         rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (mmHg)", "Precipitación (mm)"]];
-        
-        // Rellenar filas
+
+        // Rellenar filas y arrays para rosa
+        const speeds_mps = [];
+        const dirs_deg = [];
+
         for (let i = 0; i < data.hourly.time.length; i++) {
+          const speed_mps = (data.hourly.windspeed_10m[i] * 0.27778); // km/h -> m/s
+          const dir_deg = data.hourly.winddirection_10m[i];
+
           rows.push([
             data.hourly.time[i],
-            (data.hourly.windspeed_10m[i] * 0.27778).toFixed(2), // viento en m/s
-            data.hourly.winddirection_10m[i],
+            speed_mps.toFixed(2),
+            dir_deg,
             data.hourly.temperature_2m[i],
             data.hourly.relative_humidity_2m[i],
-            (data.hourly.surface_pressure[i] * 0.75006).toFixed(2), // presión en mmHg
+            (data.hourly.surface_pressure[i] * 0.75006).toFixed(2), // hPa -> mmHg
             data.hourly.precipitation[i]
           ]);
+
+          // Para la rosa (ignora nulos/undefined)
+          if (speed_mps != null && !isNaN(speed_mps) && dir_deg != null && !isNaN(dir_deg)) {
+            speeds_mps.push(speed_mps);
+            dirs_deg.push(dir_deg);
+          }
         }
 
-        // Mostrar título y tabla
+        // Títulos
         const tableTitle = document.getElementById("tableTitle");
         const lugarTexto = lastPlaceName ? ` para ${lastPlaceName}` : "";
         tableTitle.textContent = `Datos meteorológicos${lugarTexto} (${start} a ${end})`;
         tableTitle.style.display = "block";
 
+        // Render tabla
         renderTable(rows);
-
         document.getElementById("tableContainer").style.display = "block";
+
+        // Render rosa
+        document.getElementById("roseWrap").style.display = "block";
+        document.getElementById("roseTitle").textContent = `Rosa de vientos${lugarTexto} (${start} a ${end})`;
+        buildWindRose(speeds_mps, dirs_deg);
+
+        // Descargar Excel
         document.getElementById("downloadBtn").onclick = function() {
           const ws = XLSX.utils.aoa_to_sheet(rows);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Meteo");
-
           const placeSlug = slugify(lastPlaceName);
           const fileName = placeSlug
             ? `datos_meteo_${placeSlug}_${start}_a_${end}.xlsx`
             : `datos_meteo_${start}_a_${end}.xlsx`;
-
           XLSX.writeFile(wb, fileName);
         };
+
       } catch (err) {
         console.error(err);
         alert("Error al consultar la API");
@@ -447,7 +530,6 @@
     function renderTable(data) {
       const table = document.getElementById("dataTable");
       table.innerHTML = "";
-
       data.forEach((row, rowIndex) => {
         const tr = document.createElement("tr");
         row.forEach(cell => {
@@ -461,4 +543,3 @@
   </script>
 </body>
 </html>
-
