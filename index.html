@@ -11,8 +11,9 @@
       padding: 0;
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 30px 10px;
     }
 
     .container {
@@ -21,7 +22,7 @@
       border-radius: 12px;
       box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.15);
       width: 100%;
-      max-width: 420px;
+      max-width: 900px;
       text-align: center;
     }
 
@@ -87,6 +88,32 @@
       background: #3e8e41;
       transform: scale(1.05);
     }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 25px;
+      font-size: 13px;
+    }
+
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: center;
+    }
+
+    table th {
+      background: #4CAF50;
+      color: white;
+    }
+
+    .table-container {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
   </style>
 </head>
 <body>
@@ -123,20 +150,27 @@
       <label>Fecha fin:</label>
       <input type="date" id="end" required>
 
-      <button type="submit">📥 Descargar Excel</button>
+      <button type="submit">🔍 Consultar Datos</button>
     </form>
+
+    <div class="table-container" id="tableContainer" style="display:none;">
+      <table id="dataTable"></table>
+      <button id="downloadBtn">📥 Descargar Excel</button>
+    </div>
   </div>
 
   <!-- Librería XLSX -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <script>
+    let rows = [];
+
     // Convierte grados, minutos, segundos y dirección a decimal
     function dmsToDecimal(deg, min, sec, dir) {
       let decimal = parseFloat(deg) + parseFloat(min) / 60 + parseFloat(sec) / 3600;
       dir = dir.toUpperCase();
       if (dir === "S" || dir === "W" || dir === "O") decimal *= -1;
-      return decimal;
+      return +decimal.toFixed(6);
     }
 
     document.getElementById("weatherForm").addEventListener("submit", async function (e) {
@@ -159,7 +193,7 @@
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
 
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m&timezone=auto`;
+      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
 
       try {
         const response = await fetch(url);
@@ -170,25 +204,53 @@
           return;
         }
 
-        const rows = [["Fecha-Hora", "Velocidad Viento (m/s)", "Dirección Viento (°)"]];
+        // Encabezados
+        rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (hPa)", "Precipitación (mm)"]];
+        
+        // Rellenar filas
         for (let i = 0; i < data.hourly.time.length; i++) {
           rows.push([
             data.hourly.time[i],
             data.hourly.windspeed_10m[i],
-            data.hourly.winddirection_10m[i]
+            data.hourly.winddirection_10m[i],
+            data.hourly.temperature_2m[i],
+            data.hourly.relative_humidity_2m[i],
+            data.hourly.surface_pressure[i],
+            data.hourly.precipitation[i]
           ]);
         }
 
-        const ws = XLSX.utils.aoa_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Viento");
+        // Mostrar tabla en pantalla
+        renderTable(rows);
 
-        XLSX.writeFile(wb, `datos_viento_${start}_a_${end}.xlsx`);
+        document.getElementById("tableContainer").style.display = "block";
+        document.getElementById("downloadBtn").onclick = function() {
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Meteo");
+          XLSX.writeFile(wb, `datos_meteo_${start}_a_${end}.xlsx`);
+        };
       } catch (err) {
         console.error(err);
         alert("Error al consultar la API");
       }
     });
+
+    // Renderizar tabla en HTML
+    function renderTable(data) {
+      const table = document.getElementById("dataTable");
+      table.innerHTML = "";
+
+      data.forEach((row, rowIndex) => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement(rowIndex === 0 ? "th" : "td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+    }
   </script>
 </body>
 </html>
