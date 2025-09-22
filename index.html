@@ -205,17 +205,17 @@
         }
 
         // Encabezados
-        rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (hPa)", "Precipitación (mm)"]];
+        rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (mmHg)", "Precipitación (mm)"]];
         
         // Rellenar filas
         for (let i = 0; i < data.hourly.time.length; i++) {
           rows.push([
             data.hourly.time[i],
-            (data.hourly.windspeed_10m[i] * 0.27778).toFixed(2), // conversión a m/s
+            (data.hourly.windspeed_10m[i] * 0.27778).toFixed(2), // viento en m/s
             data.hourly.winddirection_10m[i],
             data.hourly.temperature_2m[i],
             data.hourly.relative_humidity_2m[i],
-            data.hourly.surface_pressure[i],
+            (data.hourly.surface_pressure[i] * 0.75006).toFixed(2), // presión en mmHg
             data.hourly.precipitation[i]
           ]);
         }
