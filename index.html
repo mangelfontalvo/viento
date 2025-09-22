@@ -316,19 +316,81 @@
       if(pos==="right")return{orientation:"v",x:1.05,y:1};
       if(pos==="left")return{orientation:"v",x:-0.25,y:1};
       return{orientation:"h",x:0,y:-0.3};
+   function buildWindRose(speeds, dirs) {
+  const counts = Array.from({ length: BIN_EDGES.length - 1 }, () =>
+    Array(SECTORS.length).fill(0)
+  );
+  let total = 0, calm = 0;
+
+  for (let i = 0; i < dirs.length; i++) {
+    const v = speeds[i], d = dirs[i];
+    if (v == null || isNaN(v)) continue;
+
+    if (v < 0.5) {  // ✅ calmas
+      calm++;
+      total++;
+      continue;
     }
-    function buildWindRose(speeds,dirs){
-      const counts=Array.from({length:BIN_EDGES.length-1},()=>Array(SECTORS.length).fill(0));
-      let total=0,calm=0;
-      for(let i=0;i<dirs.length;i++){const v=speeds[i],d=dirs[i];if(v==null||isNaN(v))continue;if(v<0.5){calm++;total++;continue;}if(d==null||isNaN(d))continue;const s=dirToSectorIndex(d);let b=BIN_EDGES.length-2;for(let j=0;j<BIN_EDGES.length-1;j++){if(v>=BIN_EDGES[j]&&v<BIN_EDGES[j+1]){b=j;break;}}counts[b][s]++;total++;}
-      const traces=[];
-      for(let b=0;b<BIN_LABELS.length;b++){const r=new Array(SECTORS.length).fill(0);for(let s=0;s<SECTORS.length;s++){r[s]=total?(counts[b][s]/total*100):0;}traces.push({type:'barpolar',r,theta:SECTORS,name:`${BIN_LABELS[b]} m/s`});}
-      const calmPct=total?(calm/total*100):0;
-      if(calmPct>0){traces.unshift({type:'barpolar',r:[5],theta:['N'],width:[360],name:'Calma',marker:{color:'rgba(150,150,150,0.4)'},hovertemplate:`Calma: ${calmPct.toFixed(1)}%<extra></extra>`});}
-      let w=windRose.clientWidth,margin={l:60,r:80,t:60,b:80};if(w<600)margin={l:40,r:40,t:40,b:60};else if(w<900)margin={l:50,r:60,t:50,b:70};
-      Plotly.newPlot('windRose',traces,{showlegend:true,legend:getLegendConfig(),margin,polar:{barmode:'stack',radialaxis:{ticksuffix:'%',dtick:5},angularaxis:{direction:'clockwise',rotation:90}}},{responsive:true});
+    if (d == null || isNaN(d)) continue;
+
+    const s = dirToSectorIndex(d);
+    let b = BIN_EDGES.length - 2;
+    for (let j = 0; j < BIN_EDGES.length - 1; j++) {
+      if (v >= BIN_EDGES[j] && v < BIN_EDGES[j + 1]) { b = j; break; }
     }
-    legendPos.addEventListener("change",()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
+    counts[b][s]++;
+    total++;
+  }
+
+  const traces = [];
+  for (let b = 0; b < BIN_LABELS.length; b++) {
+    const r = new Array(SECTORS.length).fill(0);
+    for (let s = 0; s < SECTORS.length; s++) {
+      r[s] = total ? (counts[b][s] / total * 100) : 0;
+    }
+    traces.push({
+      type: 'barpolar',
+      r,
+      theta: SECTORS,
+      name: `${BIN_LABELS[b]} m/s`
+    });
+  }
+
+  // 👉 Calma como anillo gris fijo
+  const calmPct = total ? (calm / total * 100) : 0;
+  if (calmPct > 0) {
+    // radio proporcional al valor máximo encontrado
+    const maxR = Math.max(...counts.flat().map(v => (v / total * 100) || 0));
+    const calmRadius = maxR > 0 ? maxR * 0.15 : 5; // 15% del radio máximo o fallback 5
+    traces.unshift({
+      type: 'barpolar',
+      r: [calmRadius],
+      theta: ['N'],
+      width: [360],
+      name: 'Calma',
+      marker: { color: 'rgba(150,150,150,0.4)' },
+      hovertemplate: `Calma: ${calmPct.toFixed(1)}%<extra></extra>`
+    });
+  }
+
+  // 📐 márgenes dinámicos según pantalla
+  const w = windRose.clientWidth;
+  let margin = { l: 60, r: 80, t: 60, b: 80 };
+  if (w < 600) margin = { l: 40, r: 40, t: 40, b: 60 };
+  else if (w < 900) margin = { l: 50, r: 60, t: 50, b: 70 };
+
+  Plotly.newPlot('windRose', traces, {
+    showlegend: true,
+    legend: getLegendConfig(),
+    margin,
+    polar: {
+      barmode: 'stack',
+      radialaxis: { ticksuffix: '%', dtick: 5 },
+      angularaxis: { direction: 'clockwise', rotation: 90 }
+    }
+  }, { responsive: true });
+}
+
 
   // --- formulario ---
 weatherForm.addEventListener("submit", async e => {
