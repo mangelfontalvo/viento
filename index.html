@@ -151,6 +151,17 @@
       text-align: left;
     }
 
+    #windRoseSection {
+      margin-top: 25px;
+      display: none;
+      text-align: left;
+    }
+
+    #windRose {
+      width: 100%;
+      height: 420px;
+    }
+
     /* MAPA */
     #map {
       height: 350px;
@@ -220,6 +231,11 @@
       <table id="dataTable"></table>
       <button id="downloadBtn">📥 Descargar Excel</button>
     </div>
+
+    <div id="windRoseSection">
+      <div class="table-title">Rosa de vientos (frecuencia %)</div>
+      <div id="windRose"></div>
+    </div>
   </div>
 
   <!-- Librerías -->
@@ -227,10 +243,12 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
   <script>
     let rows = [];
     let lastPlaceName = "";
+    let windSamples = [];
 
     // --- Utilidades coordenadas ---
     function dmsToDecimal(deg, min, sec, dir) {
@@ -319,6 +337,7 @@
     setInputsFromDecimal(initialLat, initialLon);
 
     const placeBox = document.getElementById("placeBox");
+    const windRoseSection = document.getElementById("windRoseSection");
     async function updatePlaceBox(lat, lon) {
       try {
         lastPlaceName = await getPlaceName(lat, lon);
@@ -386,6 +405,8 @@
       const start = document.getElementById("start").value;
       const end = document.getElementById("end").value;
 
+      windRoseSection.style.display = "none";
+
       // Refresca el nombre de lugar (por si cambió y no se actualizó)
       await updatePlaceBox(lat, lon);
 
@@ -397,23 +418,30 @@
 
         if (!data.hourly) {
           alert("No se encontraron datos.");
+          windRoseSection.style.display = "none";
           return;
         }
 
         // Encabezados
         rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (mmHg)", "Precipitación (mm)"]];
-        
+        windSamples = [];
+
         // Rellenar filas
         for (let i = 0; i < data.hourly.time.length; i++) {
+          const speedMs = data.hourly.windspeed_10m[i] * 0.27778;
+          const directionDeg = data.hourly.winddirection_10m[i];
+
           rows.push([
             data.hourly.time[i],
-            (data.hourly.windspeed_10m[i] * 0.27778).toFixed(2), // viento en m/s
-            data.hourly.winddirection_10m[i],
+            speedMs.toFixed(2), // viento en m/s
+            directionDeg,
             data.hourly.temperature_2m[i],
             data.hourly.relative_humidity_2m[i],
             (data.hourly.surface_pressure[i] * 0.75006).toFixed(2), // presión en mmHg
             data.hourly.precipitation[i]
           ]);
+
+          windSamples.push({ speed: speedMs, direction: directionDeg });
         }
 
         // Mostrar título y tabla
@@ -423,6 +451,8 @@
         tableTitle.style.display = "block";
 
         renderTable(rows);
+
+        generateWindRose(windSamples);
 
         document.getElementById("tableContainer").style.display = "block";
         document.getElementById("downloadBtn").onclick = function() {
@@ -440,6 +470,7 @@
       } catch (err) {
         console.error(err);
         alert("Error al consultar la API");
+        windRoseSection.style.display = "none";
       }
     });
 
@@ -457,6 +488,109 @@
         });
         table.appendChild(tr);
       });
+    }
+
+    function generateWindRose(samples) {
+      const purgeChart = () => {
+        if (window.Plotly && typeof Plotly.purge === "function") {
+          Plotly.purge("windRose");
+        }
+      };
+
+      if (!window.Plotly) {
+        windRoseSection.style.display = "none";
+        return;
+      }
+
+      if (!samples || !samples.length) {
+        windRoseSection.style.display = "none";
+        purgeChart();
+        return;
+      }
+
+      const directionLabels = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+      ];
+
+      const speedBins = [
+        { label: "0-2 m/s", min: 0, max: 2 },
+        { label: "2-4 m/s", min: 2, max: 4 },
+        { label: "4-6 m/s", min: 4, max: 6 },
+        { label: "6-8 m/s", min: 6, max: 8 },
+        { label: "8-10 m/s", min: 8, max: 10 },
+        { label: ">10 m/s", min: 10, max: Infinity }
+      ];
+
+      const counts = speedBins.map(() => new Array(directionLabels.length).fill(0));
+      let total = 0;
+
+      samples.forEach(({ speed, direction }) => {
+        const speedValue = Number(speed);
+        const directionValue = Number(direction);
+        if (!Number.isFinite(speedValue) || !Number.isFinite(directionValue)) return;
+
+        const normalizedDir = ((directionValue % 360) + 360) % 360;
+        const directionIndex = Math.floor(((normalizedDir + 11.25) % 360) / 22.5);
+        const binIndex = speedBins.findIndex(bin => speedValue >= bin.min && speedValue < bin.max);
+        const targetBin = binIndex === -1 ? speedBins.length - 1 : binIndex;
+
+        counts[targetBin][directionIndex] += 1;
+        total += 1;
+      });
+
+      if (!total) {
+        windRoseSection.style.display = "none";
+        purgeChart();
+        return;
+      }
+
+      const traces = speedBins
+        .map((bin, idx) => {
+          const binTotal = counts[idx].reduce((acc, value) => acc + value, 0);
+          if (!binTotal) return null;
+
+          const frequencies = counts[idx].map(value => (value / total) * 100);
+          return {
+            type: "barpolar",
+            r: frequencies,
+            theta: directionLabels,
+            name: bin.label,
+            hovertemplate: `${bin.label}<br>Dirección: %{theta}<br>Frecuencia: %{r:.2f}%<extra></extra>`,
+            marker: { opacity: 0.85 }
+          };
+        })
+        .filter(Boolean);
+
+      if (!traces.length) {
+        windRoseSection.style.display = "none";
+        purgeChart();
+        return;
+      }
+
+      const layout = {
+        title: { text: "Rosa de vientos (%)", font: { size: 16 } },
+        margin: { t: 40, r: 30, b: 30, l: 30 },
+        polar: {
+          radialaxis: {
+            tickformat: ".0f",
+            ticksuffix: "%",
+            gridcolor: "#d7d7d7",
+            linecolor: "#999"
+          },
+          angularaxis: {
+            direction: "clockwise",
+            rotation: 90
+          }
+        },
+        legend: {
+          title: { text: "Rangos de velocidad" }
+        }
+      };
+
+      const plotFn = typeof Plotly.react === "function" ? Plotly.react : Plotly.newPlot;
+      plotFn("windRose", traces, layout, { responsive: true, displaylogo: false });
+      windRoseSection.style.display = "block";
     }
   </script>
 </body>
