@@ -266,14 +266,8 @@
     }
     function setInputsFromDecimal(lat,lon){
       const latD=decimalToDMS(lat,true),lonD=decimalToDMS(lon,false);
-      document.getElementById("lat_deg").value=latD.deg;
-      document.getElementById("lat_min").value=latD.min;
-      document.getElementById("lat_sec").value=latD.sec;
-      document.getElementById("lat_dir").value=latD.dir;
-      document.getElementById("lon_deg").value=lonD.deg;
-      document.getElementById("lon_min").value=lonD.min;
-      document.getElementById("lon_sec").value=lonD.sec;
-      document.getElementById("lon_dir").value=(lonD.dir==="W")?"W":"E";
+      lat_deg.value=latD.deg; lat_min.value=latD.min; lat_sec.value=latD.sec; lat_dir.value=latD.dir;
+      lon_deg.value=lonD.deg; lon_min.value=lonD.min; lon_sec.value=lonD.sec; lon_dir.value=(lonD.dir==="W")?"W":"E";
     }
     function getDecimalsFromInputs(){
       return{
@@ -374,7 +368,7 @@
       const data=await fetch(url).then(r=>r.json());
       if(!data.hourly){alert("No se encontraron datos");return;}
       rows=[["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
-      const sp=[],di[];
+      const sp=[],di=[];
       for(let i=0;i<data.hourly.time.length;i++){
         const v=data.hourly.windspeed_10m[i]*0.27778,d=data.hourly.winddirection_10m[i];
         rows.push([data.hourly.time[i],v.toFixed(2),d,data.hourly.temperature_2m[i],data.hourly.relative_humidity_2m[i],(data.hourly.surface_pressure[i]*0.75006).toFixed(2),data.hourly.precipitation[i]]);
@@ -390,7 +384,22 @@
       buildWindRose(sp,di);
       downloadBtn.onclick=()=>{const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Meteo");XLSX.writeFile(wb,`datos_meteo_${startDate}_a_${endDate}.xlsx`);};
     });
-    function renderTable(data){dataTable.innerHTML="";data.forEach((r,i)=>{const tr=document.createElement("tr");r.forEach(c=>{const td=document.createElement(i===0?"th":"td");td.textContent=c;tr.appendChild(td);});dataTable.appendChild(tr);});}
+
+    // --- tabla ---
+    function renderTable(data){
+      dataTable.innerHTML="";
+      data.forEach((r,i)=>{
+        const tr=document.createElement("tr");
+        r.forEach(c=>{
+          const td=document.createElement(i===0?"th":"td");
+          td.textContent=c;
+          tr.appendChild(td);
+        });
+        dataTable.appendChild(tr);
+      });
+    }
+
+    // --- redibujo automático ---
     window.addEventListener('resize',()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
   </script>
 </body>
