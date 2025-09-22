@@ -211,7 +211,7 @@
         for (let i = 0; i < data.hourly.time.length; i++) {
           rows.push([
             data.hourly.time[i],
-            data.hourly.windspeed_10m[i],
+            (data.hourly.windspeed_10m[i] * 0.27778).toFixed(2), // conversión a m/s
             data.hourly.winddirection_10m[i],
             data.hourly.temperature_2m[i],
             data.hourly.relative_humidity_2m[i],
@@ -254,3 +254,4 @@
   </script>
 </body>
 </html>
+
