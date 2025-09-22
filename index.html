@@ -8,7 +8,6 @@
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
 
@@ -154,7 +153,7 @@
       border-radius: 10px;
       padding: 10px;
       background: #fafafa;
-      overflow: visible; /* evitar recortes */
+      overflow: visible;
     }
     .rose-title {
       text-align: left;
@@ -165,7 +164,7 @@
     }
     #windRose {
       width: 100%;
-      height: 460px; /* un poco más alto para móviles angostos */
+      height: 460px;
       overflow: visible;
     }
     .calm-note {
@@ -183,7 +182,6 @@
     <form id="weatherForm">
       <label>Latitud:</label>
       <div class="coord-group">
-        <!-- límites para evitar valores fuera de rango -->
         <input type="number" id="lat_deg" placeholder="°" required min="0" max="90" step="1">
         <input type="number" id="lat_min" placeholder="′" required min="0" max="59" step="1">
         <input type="number" id="lat_sec" placeholder="″" required min="0" max="59" step="1">
@@ -212,6 +210,17 @@
       <div id="map"></div>
       <div class="map-help">Tip: haz clic en el mapa o arrastra el marcador para ajustar la ubicación.</div>
 
+      <!-- selector de ubicación de la leyenda -->
+      <div class="inline-actions">
+        <label for="legendPos">Ubicación de leyenda:</label>
+        <select id="legendPos">
+          <option value="bottom" selected>Abajo</option>
+          <option value="top">Arriba</option>
+          <option value="right">Derecha</option>
+          <option value="left">Izquierda</option>
+        </select>
+      </div>
+
       <label>Fecha inicio:</label>
       <input type="date" id="start" required>
 
@@ -239,16 +248,14 @@
   </div>
 
   <!-- Librerías -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
 
   <script>
     let rows = [];
     let lastPlaceName = "";
-    let roseStore = { speeds: null, dirs: null }; // guarda datos para redibujar
+    let roseStore = { speeds: null, dirs: null };
 
     // --- Utilidades coordenadas ---
     function dmsToDecimal(deg, min, sec, dir) {
@@ -265,13 +272,8 @@
       const deg = Math.floor(abs);
       const minFloat = (abs - deg) * 60;
       const min = Math.floor(minFloat);
-      // ⬇️ segundos enteros obligatorios
-      const sec = Math.round((minFloat - min) * 60);
-      // Normalización por si redondea a 60
-      let nDeg = deg, nMin = min, nSec = sec;
-      if (nSec === 60) { nSec = 0; nMin += 1; }
-      if (nMin === 60) { nMin = 0; nDeg += 1; }
-      return { deg: nDeg, min: nMin, sec: nSec, dir };
+      const sec = Math.round((minFloat - min) * 60); // segundos enteros
+      return { deg, min, sec: sec === 60 ? 59 : sec, dir };
     }
     function setInputsFromDecimal(lat, lon) {
       const latD = decimalToDMS(lat, true);
@@ -280,7 +282,6 @@
       document.getElementById("lat_min").value = latD.min;
       document.getElementById("lat_sec").value = latD.sec;
       document.getElementById("lat_dir").value = latD.dir;
-
       document.getElementById("lon_deg").value = lonD.deg;
       document.getElementById("lon_min").value = lonD.min;
       document.getElementById("lon_sec").value = lonD.sec;
@@ -321,254 +322,115 @@
         .replace(/\s+/g, "_");
     }
 
-    // --- MAPA (Leaflet) ---
-    const initialLat = 4.6, initialLon = -74.1, initialZoom = 6; // Colombia
-    const map = L.map('map').setView([initialLat, initialLon], initialZoom);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-    const marker = L.marker([initialLat, initialLon], { draggable: true }).addTo(map);
-    setInputsFromDecimal(initialLat, initialLon);
+    // --- MAPA ---
+    const map = L.map('map').setView([4.6, -74.1], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    const marker = L.marker([4.6, -74.1], { draggable: true }).addTo(map);
+    setInputsFromDecimal(4.6, -74.1);
 
-    const placeBox = document.getElementById("placeBox");
     async function updatePlaceBox(lat, lon) {
       try {
         lastPlaceName = await getPlaceName(lat, lon);
-        placeBox.textContent = `📍 Lugar detectado: ${lastPlaceName}  (Lat: ${lat}, Lon: ${lon})`;
-        placeBox.style.display = "block";
-      } catch (e) {
-        console.warn(e);
+        document.getElementById("placeBox").textContent = `📍 Lugar detectado: ${lastPlaceName}  (Lat: ${lat}, Lon: ${lon})`;
+        document.getElementById("placeBox").style.display = "block";
+      } catch {
         lastPlaceName = "";
-        placeBox.style.display = "none";
       }
     }
-    updatePlaceBox(initialLat, initialLon);
+    updatePlaceBox(4.6, -74.1);
 
+    // eventos del mapa
     map.on('click', async (e) => {
       const { lat, lng } = e.latlng;
       marker.setLatLng([lat, lng]);
       setInputsFromDecimal(lat, lng);
-      await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
+      await updatePlaceBox(lat, lng);
     });
     marker.on('dragend', async () => {
       const { lat, lng } = marker.getLatLng();
       setInputsFromDecimal(lat, lng);
-      await updatePlaceBox(+lat.toFixed(6), +lng.toFixed(6));
-    });
-    const dmsFields = ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"];
-    dmsFields.forEach(id => {
-      document.getElementById(id).addEventListener("change", async () => {
-        const { lat, lon } = getDecimalsFromInputs();
-        marker.setLatLng([lat, lon]);
-        map.setView([lat, lon], map.getZoom());
-        await updatePlaceBox(lat, lon);
-      });
-    });
-    document.getElementById("useMyLocation").addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        alert("Geolocalización no soportada por este navegador.");
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const lat = +pos.coords.latitude.toFixed(6);
-        const lon = +pos.coords.longitude.toFixed(6);
-        map.setView([lat, lon], 14);
-        marker.setLatLng([lat, lon]);
-        setInputsFromDecimal(lat, lon);
-        await updatePlaceBox(lat, lon);
-      }, (err) => {
-        console.warn(err);
-        alert("No se pudo obtener la ubicación.");
-      }, { enableHighAccuracy: true, timeout: 10000 });
+      await updatePlaceBox(lat, lng);
     });
 
     // --- ROSA DE VIENTOS ---
     const SECTORS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const BIN_EDGES = [0, 2, 4, 6, 8, 10, 12, Infinity]; // m/s
+    const BIN_EDGES = [0,2,4,6,8,10,12,Infinity];
     const BIN_LABELS = ['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
-    function dirToSectorIndex(deg) {
-      const idx = Math.round((deg % 360) / 22.5) % 16;
-      return idx;
+
+    function dirToSectorIndex(deg){ return Math.round((deg%360)/22.5)%16; }
+
+    function getLegendConfig() {
+      const pos = document.getElementById("legendPos")?.value || "bottom";
+      switch (pos) {
+        case "top":    return { orientation: "h", x: 0, y: 1.2 };
+        case "right":  return { orientation: "v", x: 1.05, y: 1 };
+        case "left":   return { orientation: "v", x: -0.25, y: 1 };
+        default:       return { orientation: "h", x: 0, y: -0.3 };
+      }
     }
+
     function buildWindRose(speeds_mps, dirs_deg) {
-      const nSectors = SECTORS.length;
-      const nBins = BIN_EDGES.length - 1;
-      const counts = Array.from({ length: nBins }, () => Array(nSectors).fill(0));
-      let total = 0, calm = 0;
-
-      for (let i = 0; i < dirs_deg.length; i++) {
-        const dir = dirs_deg[i];
-        const v = speeds_mps[i];
-        if (v == null || dir == null || isNaN(v) || isNaN(dir)) continue;
-        if (v < 0.5) { calm++; total++; continue; }
-        const sector = dirToSectorIndex(dir);
-        let b = nBins - 1;
-        for (let j = 0; j < nBins; j++) {
-          if (v >= BIN_EDGES[j] && v < BIN_EDGES[j+1]) { b = j; break; }
-        }
-        counts[b][sector] += 1;
-        total++;
+      const counts = Array.from({ length: BIN_EDGES.length-1 }, () => Array(SECTORS.length).fill(0));
+      let total=0, calm=0;
+      for (let i=0;i<dirs_deg.length;i++){
+        const v=speeds_mps[i], d=dirs_deg[i];
+        if (v==null || isNaN(v)) continue;
+        if (v<0.5){ calm++; total++; continue; }
+        if (d==null || isNaN(d)) continue;
+        const sector=dirToSectorIndex(d);
+        let bin=BIN_EDGES.length-2;
+        for(let j=0;j<BIN_EDGES.length-1;j++){ if(v>=BIN_EDGES[j] && v<BIN_EDGES[j+1]){ bin=j; break; } }
+        counts[bin][sector]++; total++;
       }
-
-      const traces = [];
-      for (let b = 0; b < nBins; b++) {
-        const r = new Array(nSectors).fill(0);
-        for (let s = 0; s < nSectors; s++) r[s] = total ? (counts[b][s] / total) * 100 : 0;
-        traces.push({
-          type: 'barpolar',
-          r,
-          theta: SECTORS,
-          name: `${BIN_LABELS[b]} m/s`,
-          hovertemplate: '%{theta}: %{r:.2f}%<extra>'+BIN_LABELS[b]+' m/s</extra>'
-        });
+      const traces=[];
+      for(let b=0;b<BIN_LABELS.length;b++){
+        const r=new Array(SECTORS.length).fill(0);
+        for(let s=0;s<SECTORS.length;s++){ r[s]=total?(counts[b][s]/total*100):0; }
+        traces.push({type:'barpolar',r,theta:SECTORS,name:`${BIN_LABELS[b]} m/s`});
       }
-
-      const calmPct = total ? (calm / total * 100) : 0;
-
-      // Márgenes adaptativos según ancho disponible
-      const el = document.getElementById('windRose');
-      const w = (el && el.clientWidth) ? el.clientWidth : window.innerWidth;
-      let marginConfig;
-      if (w < 600) {
-        marginConfig = { l: 40, r: 40, t: 40, b: 60 };
-      } else if (w < 900) {
-        marginConfig = { l: 50, r: 60, t: 50, b: 70 };
-      } else {
-        marginConfig = { l: 60, r: 80, t: 60, b: 80 };
-      }
-
-      Plotly.newPlot('windRose', traces, {
-        title: '',
-        showlegend: true,
-        legend: { orientation: 'h', x: 0, y: -0.15 },
-        margin: marginConfig,
-        polar: {
-          barmode: 'stack',
-          bargap: 0,
-          radialaxis: { ticksuffix: '%', angle: 0, dtick: 5, gridcolor: '#eee' },
-          angularaxis: { direction: 'clockwise', rotation: 90 }
-        }
-      }, { responsive: true });
-
-      document.getElementById('calmNote').textContent =
-        `Calmas (<0.5 m/s): ${calmPct.toFixed(1)}%`;
+      const calmPct=total?(calm/total*100):0;
+      const w=document.getElementById('windRose').clientWidth;
+      let margin={l:60,r:80,t:60,b:80}; if(w<600)margin={l:40,r:40,t:40,b:60}; else if(w<900)margin={l:50,r:60,t:50,b:70};
+      Plotly.newPlot('windRose',traces,{
+        showlegend:true,legend:getLegendConfig(),margin,
+        polar:{barmode:'stack',radialaxis:{ticksuffix:'%',dtick:5},angularaxis:{direction:'clockwise',rotation:90}}
+      },{responsive:true});
+      document.getElementById("calmNote").textContent=`Calmas (<0.5 m/s): ${calmPct.toFixed(1)}%`;
     }
 
-    // --- Formulario: Open-Meteo + Tabla + Rosa ---
-    document.getElementById("weatherForm").addEventListener("submit", async function (e) {
+    // --- Formulario ---
+    document.getElementById("weatherForm").addEventListener("submit", async e=>{
       e.preventDefault();
-
-      const { lat, lon } = getDecimalsFromInputs();
-      const start = document.getElementById("start").value;
-      const end = document.getElementById("end").value;
-
-      await updatePlaceBox(lat, lon);
-
-      const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
-
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (!data.hourly) {
-          alert("No se encontraron datos.");
-          return;
-        }
-
-        // Encabezados
-        rows = [["Fecha-Hora", "Vel. Viento (m/s)", "Dir. Viento (°)", "Temp (°C)", "Humedad (%)", "Presión (mmHg)", "Precipitación (mm)"]];
-
-        // Rellenar filas y arrays para rosa
-        const speeds_mps = [];
-        const dirs_deg = [];
-
-        for (let i = 0; i < data.hourly.time.length; i++) {
-          const speed_mps = (data.hourly.windspeed_10m[i] * 0.27778); // km/h -> m/s
-          const dir_deg = data.hourly.winddirection_10m[i];
-
-          rows.push([
-            data.hourly.time[i],
-            speed_mps.toFixed(2),
-            dir_deg,
-            data.hourly.temperature_2m[i],
-            data.hourly.relative_humidity_2m[i],
-            (data.hourly.surface_pressure[i] * 0.75006).toFixed(2), // hPa -> mmHg
-            data.hourly.precipitation[i]
-          ]);
-
-          if (!isNaN(speed_mps) && !isNaN(dir_deg)) {
-            speeds_mps.push(speed_mps);
-            dirs_deg.push(dir_deg);
-          }
-        }
-
-        // Títulos
-        const tableTitle = document.getElementById("tableTitle");
-        const lugarTexto = lastPlaceName ? ` para ${lastPlaceName}` : "";
-        tableTitle.textContent = `Datos meteorológicos${lugarTexto} (${start} a ${end})`;
-        tableTitle.style.display = "block";
-
-        // Render tabla
-        renderTable(rows);
-        document.getElementById("tableContainer").style.display = "block";
-
-        // Guardar y render rosa
-        roseStore.speeds = speeds_mps.slice();
-        roseStore.dirs = dirs_deg.slice();
-
-        document.getElementById("roseWrap").style.display = "block";
-        document.getElementById("roseTitle").textContent = `Rosa de vientos${lugarTexto} (${start} a ${end})`;
-        buildWindRose(roseStore.speeds, roseStore.dirs);
-
-        // Descargar Excel
-        document.getElementById("downloadBtn").onclick = function() {
-          const ws = XLSX.utils.aoa_to_sheet(rows);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, "Meteo");
-          const placeSlug = slugify(lastPlaceName);
-          const fileName = placeSlug
-            ? `datos_meteo_${placeSlug}_${start}_a_${end}.xlsx`
-            : `datos_meteo_${start}_a_${end}.xlsx`;
-          XLSX.writeFile(wb, fileName);
-        };
-
-      } catch (err) {
-        console.error(err);
-        alert("Error al consultar la API");
+      const {lat,lon}=getDecimalsFromInputs();
+      const start=document.getElementById("start").value;
+      const end=document.getElementById("end").value;
+      await updatePlaceBox(lat,lon);
+      const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${start}&end_date=${end}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
+      const data=await fetch(url).then(r=>r.json());
+      if(!data.hourly){alert("No se encontraron datos.");return;}
+      rows=[["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
+      const speeds=[],dirs=[];
+      for(let i=0;i<data.hourly.time.length;i++){
+        const sp=data.hourly.windspeed_10m[i]*0.27778, di=data.hourly.winddirection_10m[i];
+        rows.push([data.hourly.time[i],sp.toFixed(2),di,data.hourly.temperature_2m[i],data.hourly.relative_humidity_2m[i],(data.hourly.surface_pressure[i]*0.75006).toFixed(2),data.hourly.precipitation[i]]);
+        if(!isNaN(sp)&&!isNaN(di)){speeds.push(sp);dirs.push(di);}
       }
+      document.getElementById("tableTitle").textContent=`Datos meteorológicos para ${lastPlaceName} (${start} a ${end})`;
+      document.getElementById("tableTitle").style.display="block";
+      renderTable(rows); document.getElementById("tableContainer").style.display="block";
+      roseStore.speeds=speeds; roseStore.dirs=dirs;
+      document.getElementById("roseWrap").style.display="block";
+      document.getElementById("roseTitle").textContent=`Rosa de vientos para ${lastPlaceName} (${start} a ${end})`;
+      buildWindRose(speeds,dirs);
+      document.getElementById("downloadBtn").onclick=()=>{
+        const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Meteo");
+        XLSX.writeFile(wb,`datos_meteo_${slugify(lastPlaceName)}_${start}_a_${end}.xlsx`);
+      };
     });
 
-    // Renderizar tabla en HTML
-    function renderTable(data) {
-      const table = document.getElementById("dataTable");
-      table.innerHTML = "";
-      data.forEach((row, rowIndex) => {
-        const tr = document.createElement("tr");
-        row.forEach(cell => {
-          const td = document.createElement(rowIndex === 0 ? "th" : "td");
-          td.textContent = cell;
-          tr.appendChild(td);
-        });
-        table.appendChild(tr);
-      });
-    }
+    function renderTable(data){const t=document.getElementById("dataTable");t.innerHTML="";data.forEach((r,i)=>{const tr=document.createElement("tr");r.forEach(c=>{const td=document.createElement(i===0?"th":"td");td.textContent=c;tr.appendChild(td);});t.appendChild(tr);});}
 
-    // --- Redibujado automático de la rosa (debounce) ---
-    function debounce(fn, wait = 150) {
-      let t;
-      return (...args) => {
-        clearTimeout(t);
-        t = setTimeout(() => fn(...args), wait);
-      };
-    }
-    window.addEventListener('resize', debounce(() => {
-      if (roseStore.speeds && roseStore.dirs) {
-        buildWindRose(roseStore.speeds, roseStore.dirs);
-      }
-    }, 150));
+    window.addEventListener('resize',()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
   </script>
 </body>
 </html>
-
-
