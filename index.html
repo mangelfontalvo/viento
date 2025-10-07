@@ -133,7 +133,6 @@
       background: #4CAF50;
       color: #fff;
     }
-    /* MAPA */
     #map {
       height: 350px;
       width: 100%;
@@ -146,7 +145,6 @@
       color: #555;
       margin-top: 6px;
     }
-    /* ROSA DE VIENTOS */
     .rose-wrap {
       margin-top: 22px;
       border: 1px solid #eee;
@@ -217,11 +215,8 @@
 
     <div id="tableTitle" class="table-title" style="display:none;"></div>
 
-    <!-- ROSA DE VIENTOS -->
     <div class="rose-wrap" id="roseWrap" style="display:none;">
       <div class="rose-title" id="roseTitle">Rosa de vientos</div>
-
-      <!-- Selector de posición de leyenda -->
       <div class="inline-actions" style="margin-bottom:10px; justify-content:flex-end;">
         <label for="legendPos">Leyenda:</label>
         <select id="legendPos">
@@ -231,7 +226,6 @@
           <option value="left">Izquierda</option>
         </select>
       </div>
-
       <div id="windRose"></div>
     </div>
 
@@ -241,7 +235,6 @@
     </div>
   </div>
 
-  <!-- Librerías -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
@@ -251,7 +244,6 @@
     let lastPlaceName = "";
     let roseStore = { speeds: null, dirs: null };
 
-    // --- utilidades coordenadas ---
     function dmsToDecimal(deg, min, sec, dir) {
       let decimal = parseFloat(deg||0)+parseFloat(min||0)/60+parseFloat(sec||0)/3600;
       if(["S","W","O"].includes(dir?.toUpperCase())) decimal*=-1;
@@ -276,7 +268,6 @@
       };
     }
 
-    // --- geocoding ---
     async function getPlaceName(lat,lon){
       const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es`;
       const res=await fetch(url,{headers:{"Accept":"application/json"}});
@@ -284,7 +275,6 @@
       return a.city||a.town||a.village||a.municipality||a.county||a.state||data.display_name;
     }
 
-    // --- mapa ---
     const map=L.map('map').setView([4.6,-74.1],6);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
     const marker=L.marker([4.6,-74.1],{draggable:true}).addTo(map);
@@ -299,7 +289,6 @@
     marker.on('dragend',async()=>{const {lat,lng}=marker.getLatLng();setInputsFromDecimal(lat,lng);await updatePlaceBox(lat,lng);});
     useMyLocation.onclick=()=>{if(navigator.geolocation)navigator.geolocation.getCurrentPosition(async p=>{const lat=+p.coords.latitude.toFixed(6),lon=+p.coords.longitude.toFixed(6);map.setView([lat,lon],14);marker.setLatLng([lat,lon]);setInputsFromDecimal(lat,lon);await updatePlaceBox(lat,lon);},err=>alert("No se pudo obtener ubicación:"+err.message),{enableHighAccuracy:true});};
 
-    // --- actualizar mapa al cambiar inputs ---
     function updateMapFromInputs() {
       const { lat, lon } = getDecimalsFromInputs();
       if (isNaN(lat) || isNaN(lon)) return;
@@ -312,7 +301,6 @@
       document.getElementById(id).addEventListener("change", updateMapFromInputs);
     });
 
-    // --- rosa de vientos ---
     const SECTORS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     const BIN_EDGES=[0,2,4,6,8,10,12,Infinity];
     const BIN_LABELS=['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
@@ -357,50 +345,6 @@
     }
     legendPos.addEventListener("change",()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
 
-    // --- formulario ---
-    weatherForm.addEventListener("submit", async e => {
-      e.preventDefault();
-      const {lat,lon}=getDecimalsFromInputs();
-      const startDate=document.getElementById("start").value;
-      const endDate=document.getElementById("end").value;
-      await updatePlaceBox(lat,lon);
-      const url=`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${startDate}&end_date=${endDate}&hourly=windspeed_10m,winddirection_10m,temperature_2m,relative_humidity_2m,surface_pressure,precipitation&timezone=auto`;
-      const data=await fetch(url).then(r=>r.json());
-      if(!data.hourly){alert("No se encontraron datos");return;}
-      rows=[["Fecha-Hora","Vel. Viento (m/s)","Dir. Viento (°)","Temp (°C)","Humedad (%)","Presión (mmHg)","Precipitación (mm)"]];
-      const sp=[],di=[];
-      for(let i=0;i<data.hourly.time.length;i++){
-        const v=data.hourly.windspeed_10m[i]*0.27778,d=data.hourly.winddirection_10m[i];
-        rows.push([data.hourly.time[i],v.toFixed(2),d,data.hourly.temperature_2m[i],data.hourly.relative_humidity_2m[i],(data.hourly.surface_pressure[i]*0.75006).toFixed(2),data.hourly.precipitation[i]]);
-        if(!isNaN(v)&&!isNaN(d)){sp.push(v);di.push(d);}
-      }
-      tableTitle.textContent=`Datos meteorológicos para ${lastPlaceName} (${startDate} a ${endDate})`;
-      tableTitle.style.display="block";
-      renderTable(rows);
-      tableContainer.style.display="block";
-      roseStore.speeds=sp;roseStore.dirs=di;
-      roseWrap.style.display="block";
-      roseTitle.textContent=`Rosa de vientos para ${lastPlaceName} (${startDate} a ${endDate})`;
-      buildWindRose(sp,di);
-      downloadBtn.onclick=()=>{const ws=XLSX.utils.aoa_to_sheet(rows),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Meteo");XLSX.writeFile(wb,`datos_meteo_${startDate}_a_${endDate}.xlsx`);};
-    });
-
-    // --- tabla ---
-    function renderTable(data){
-      dataTable.innerHTML="";
-      data.forEach((r,i)=>{
-        const tr=document.createElement("tr");
-        r.forEach(c=>{
-          const td=document.createElement(i===0?"th":"td");
-          td.textContent=c;
-          tr.appendChild(td);
-        });
-        dataTable.appendChild(tr);
-      });
-    }
-
-    // --- redibujo automático ---
-    window.addEventListener('resize',()=>{if(roseStore.speeds)buildWindRose(roseStore.speeds,roseStore.dirs);});
-  </script>
-</body>
-</html>
+    function pctToOktas(pct){
+      const ok = Math.round((8 * (pct??0)) / 100);
+      return Math.min(8,
