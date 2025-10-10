@@ -9,60 +9,34 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
 
   <style>
-    :root{
-      --primary:#4CAF50;
-    }
+    :root{ --primary:#4CAF50; }
     *{box-sizing:border-box}
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: linear-gradient(to right, #74ebd5, #ACB6E5);
-      margin: 0;
-      padding: 30px 12px;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
-    }
-    .container {
-      background: #fff;
-      padding: 24px 28px;
-      border-radius: 14px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-      width: 100%;
-      max-width: 1080px;
-    }
-    h1 {
-      margin: 0 0 18px;
-      font-size: 22px;
-      text-align: center;
-      color: #222;
-    }
-    form {display:grid; gap:14px}
-    label {font-weight:600;color:#333}
-    .coord-group {display:flex; gap:6px; flex-wrap:wrap}
-    .coord-group input,.coord-group select{
-      width:78px; padding:8px 10px; border:1px solid #cfd7df; border-radius:8px; font-size:14px; text-align:center
-    }
-    input[type="date"], select, button{font-size:14px}
-    input[type="date"]{padding:8px 10px; border:1px solid #cfd7df; border-radius:8px; max-width:280px}
-    .inline-actions{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
-    button{background:var(--primary); color:#fff; border:0; padding:10px 16px; border-radius:8px; cursor:pointer; transition:filter .2s}
-    button:hover{filter:brightness(0.95)}
-
-    /* MAPA */
-    #map {height:380px; width:100%; border:1px solid #e2e8f0; border-radius:10px}
-    .map-help{font-size:12px; color:#555}
-
-    /* TABLA */
-    .table-title{margin-top:16px; font-weight:700}
-    .table-container{max-height:420px; overflow:auto; margin-top:12px; border:1px solid #e2e8f0; border-radius:10px}
-    table{width:100%; border-collapse:collapse; font-size:13px}
-    th,td{border:1px solid #e2e8f0; padding:6px; text-align:center}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(to right,#74ebd5,#ACB6E5);margin:0;padding:30px 12px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh}
+    .container{background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:100%;max-width:1080px}
+    h1{margin:0 0 18px;font-size:22px;text-align:center;color:#222}
+    form{display:grid;gap:14px}
+    label{font-weight:600;color:#333}
+    .coord-group{display:flex;gap:6px;flex-wrap:wrap}
+    .coord-group input,.coord-group select{width:78px;padding:8px 10px;border:1px solid #cfd7df;border-radius:8px;font-size:14px;text-align:center}
+    input[type=date],select,button{font-size:14px}
+    input[type=date]{padding:8px 10px;border:1px solid #cfd7df;border-radius:8px;max-width:280px}
+    .inline-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    button{background:var(--primary);color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;transition:filter .2s}
+    button:hover{filter:brightness(.95)}
+    #map{height:380px;width:100%;border:1px solid #e2e8f0;border-radius:10px}
+    .map-help{font-size:12px;color:#555}
+    .table-title{margin-top:16px;font-weight:700}
+    .table-container{max-height:420px;overflow:auto;margin-top:12px;border:1px solid #e2e8f0;border-radius:10px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{border:1px solid #e2e8f0;padding:6px;text-align:center}
     th{background:#f6faf7}
-
-    /* ROSA */
-    .rose-wrap{margin-top:20px; border:1px solid #e2e8f0; border-radius:10px; padding:12px; background:#fafafa}
-    #windRose{width:100%; height:460px}
+    .rose-wrap{margin-top:20px;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fafafa}
+    .rose-grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media(min-width:900px){.rose-grid{grid-template-columns:1fr 1fr}}
+    .rose-card{border:1px dashed #e2e8f0;border-radius:10px;padding:10px;background:#fff}
+    .rose-title{font-weight:700;margin-bottom:6px}
+    .rose-legend-controls{display:flex;justify-content:flex-end;gap:10px}
+    .rose-plot{width:100%;height:420px}
   </style>
 </head>
 <body>
@@ -106,20 +80,32 @@
 
     <div id="tableTitle" class="table-title" style="display:none;"></div>
 
+    <!-- Rosas de vientos -->
     <div class="rose-wrap" id="roseWrap" style="display:none;">
-      <div class="inline-actions" style="justify-content:space-between">
-        <div class="rose-title" id="roseTitle">Rosa de vientos</div>
-        <div class="inline-actions">
-          <label for="legendPos">Leyenda:</label>
-          <select id="legendPos">
-            <option value="bottom" selected>Abajo</option>
-            <option value="top">Arriba</option>
-            <option value="right">Derecha</option>
-            <option value="left">Izquierda</option>
-          </select>
+      <div class="rose-legend-controls">
+        <label for="legendPos">Leyenda:</label>
+        <select id="legendPos">
+          <option value="bottom" selected>Abajo</option>
+          <option value="top">Arriba</option>
+          <option value="right">Derecha</option>
+          <option value="left">Izquierda</option>
+        </select>
+      </div>
+
+      <div class="rose-grid">
+        <div class="rose-card">
+          <div class="rose-title" id="roseTitleAll">Rosa de vientos (general)</div>
+          <div id="windRoseAll" class="rose-plot"></div>
+        </div>
+        <div class="rose-card">
+          <div class="rose-title" id="roseTitleDay">Rosa de vientos diurna (07:01–21:00)</div>
+          <div id="windRoseDay" class="rose-plot"></div>
+        </div>
+        <div class="rose-card">
+          <div class="rose-title" id="roseTitleNight">Rosa de vientos nocturna (21:01–07:00)</div>
+          <div id="windRoseNight" class="rose-plot"></div>
         </div>
       </div>
-      <div id="windRose"></div>
     </div>
 
     <div class="table-container" id="tableContainer" style="display:none;">
@@ -128,7 +114,7 @@
     </div>
   </div>
 
-  <!-- Libs al final para garantizar que DOM existe -->
+  <!-- Libs al final -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.27.1.min.js"></script>
@@ -137,7 +123,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     let rows = [];
     let lastPlaceName = "";
-    let roseStore = { speeds: null, dirs: null };
+    let roseStore = { all:{s:[],d:[]}, day:{s:[],d:[]}, night:{s:[],d:[]} };
 
     // ===== Utilidades coordenadas =====
     function dmsToDecimal(deg, min, sec, dir) {
@@ -158,10 +144,7 @@
       lon_deg.value=lonD.deg; lon_min.value=lonD.min; lon_sec.value=lonD.sec; lon_dir.value=(lonD.dir==="W")?"W":"E";
     }
     function getDecimalsFromInputs(){
-      return{
-        lat:dmsToDecimal(lat_deg.value,lat_min.value,lat_sec.value,lat_dir.value),
-        lon:dmsToDecimal(lon_deg.value,lon_min.value,lon_sec.value,lon_dir.value)
-      };
+      return{ lat:dmsToDecimal(lat_deg.value,lat_min.value,lat_sec.value,lat_dir.value), lon:dmsToDecimal(lon_deg.value,lon_min.value,lon_sec.value,lon_dir.value) };
     }
 
     // ===== Geocoding =====
@@ -175,11 +158,9 @@
       }catch{ return `${lat},${lon}` }
     }
 
-    // ===== Mapa (asegurar que el div exista antes de crear el mapa) =====
+    // ===== Mapa =====
     const map = L.map('map', { zoomControl: true }).setView([4.6,-74.1], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
     const marker = L.marker([4.6,-74.1], { draggable: true }).addTo(map);
     setInputsFromDecimal(4.6,-74.1);
 
@@ -202,7 +183,6 @@
       await updatePlaceBox(lat,lng);
     });
 
-    // Geolocalización (requiere HTTPS o localhost)
     document.getElementById('useMyLocation').addEventListener('click', () => {
       if(!navigator.geolocation){ return alert('Geolocalización no soportada por el navegador.'); }
       navigator.geolocation.getCurrentPosition(async pos => {
@@ -212,12 +192,9 @@
         marker.setLatLng([lat,lon]);
         setInputsFromDecimal(lat,lon);
         await updatePlaceBox(lat,lon);
-      }, err => {
-        alert('No se pudo obtener ubicación: ' + err.message);
-      }, { enableHighAccuracy:true, timeout:10000 });
+      }, err => { alert('No se pudo obtener ubicación: ' + err.message); }, { enableHighAccuracy:true, timeout:10000 });
     });
 
-    // Mantener mapa sincronizado con los inputs
     function updateMapFromInputs(){
       const { lat, lon } = getDecimalsFromInputs();
       if(isFinite(lat) && isFinite(lon)){
@@ -235,15 +212,16 @@
     const SECTORS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
     const BIN_EDGES=[0,2,4,6,8,10,12,Infinity];
     const BIN_LABELS=['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
+    const pctToOktas = pct => Math.min(8, Math.max(0, Math.round(8*(pct??0)/100)));
     function dirToSectorIndex(d){return Math.round((d%360)/22.5)%16;}
-    function getLegendConfig(){
+    function legendCfg(){
       const pos = document.getElementById('legendPos').value;
       if(pos==='top') return {orientation:'h', x:0, y:1.2};
       if(pos==='right') return {orientation:'v', x:1.05, y:1};
       if(pos==='left') return {orientation:'v', x:-0.25, y:1};
       return {orientation:'h', x:0, y:-0.3};
     }
-    function buildWindRose(speeds,dirs){
+    function buildWindRoseFor(divId, speeds, dirs){
       const counts=Array.from({length:BIN_EDGES.length-1},()=>Array(SECTORS.length).fill(0));
       let total=0,calm=0;
       for(let i=0;i<dirs.length;i++){
@@ -270,14 +248,24 @@
         const calmRadius=maxR>0?maxR*0.15:5;
         traces.unshift({type:'barpolar', r:[calmRadius], theta:['N'], width:[360], name:'Calma', marker:{color:'rgba(150,150,150,0.4)'}, hovertemplate:`Calma: ${calmPct.toFixed(1)}%<extra></extra>`});
       }
-      let w=document.getElementById('windRose').clientWidth, margin={l:60,r:80,t:60,b:80};
-      if(w<600) margin={l:40,r:40,t:40,b:60}; else if(w<900) margin={l:50,r:60,t:50,b:70};
-      Plotly.newPlot('windRose', traces, {showlegend:true, legend:getLegendConfig(), margin, polar:{barmode:'stack', radialaxis:{ticksuffix:'%',dtick:5}, angularaxis:{direction:'clockwise', rotation:90}}}, {responsive:true});
+      let w=document.getElementById(divId).clientWidth, margin={l:50,r:60,t:50,b:60};
+      if(w<600) margin={l:40,r:40,t:40,b:50}; else if(w<900) margin={l:45,r:50,t:45,b:55};
+      Plotly.newPlot(divId, traces, {showlegend:true, legend:legendCfg(), margin, polar:{barmode:'stack', radialaxis:{ticksuffix:'%',dtick:5}, angularaxis:{direction:'clockwise', rotation:90}}}, {responsive:true});
     }
-    document.getElementById('legendPos').addEventListener('change',()=>{ if(roseStore.speeds) buildWindRose(roseStore.speeds, roseStore.dirs); });
+    document.getElementById('legendPos').addEventListener('change',()=>{
+      const {all,day,night}=roseStore;
+      if(all.s.length) buildWindRoseFor('windRoseAll', all.s, all.d);
+      if(day.s.length) buildWindRoseFor('windRoseDay', day.s, day.d);
+      if(night.s.length) buildWindRoseFor('windRoseNight', night.s, night.d);
+    });
 
-    // ===== Nubosidad: % -> octas =====
-    const pctToOktas = pct => Math.min(8, Math.max(0, Math.round(8*(pct??0)/100)));
+    // Día / Noche (local): diurna 07:01–21:00 ; nocturna 21:01–07:00
+    function isDayLocal(date){
+      const h=date.getHours(), m=date.getMinutes();
+      const afterStart = (h>7) || (h===7 && m>=1);
+      const beforeEnd  = (h<21) || (h===21 && m===0);
+      return afterStart && beforeEnd;
+    }
 
     // ===== Formulario =====
     document.getElementById('weatherForm').addEventListener('submit', async (e) => {
@@ -287,48 +275,46 @@
       const endDate=document.getElementById('end').value;
       await updatePlaceBox(lat,lon);
 
-      // Pedimos variables en unidades útiles directamente
-      const hourlyVars = [
-        'wind_speed_10m','wind_direction_10m','temperature_2m','relative_humidity_2m','surface_pressure','precipitation','cloud_cover'
-      ].join(',');
       const qs = new URLSearchParams({
         latitude:String(lat), longitude:String(lon), start_date:startDate, end_date:endDate,
-        hourly:hourlyVars, timezone:'auto', wind_speed_unit:'ms', precipitation_unit:'mm'
+        hourly:['wind_speed_10m','wind_direction_10m','temperature_2m','relative_humidity_2m','surface_pressure','precipitation','cloud_cover'].join(','),
+        timezone:'auto', wind_speed_unit:'ms', precipitation_unit:'mm'
       });
       const url = `https://archive-api.open-meteo.com/v1/archive?${qs.toString()}`;
 
-      let data;
-      try{
-        data = await fetch(url).then(r=>r.json());
-      }catch(err){
-        return alert('Error al consultar Open-Meteo: '+err.message);
-      }
-      if(!data.hourly || !data.hourly.time){
-        return alert('No se encontraron datos para esas fechas o ubicación.');
-      }
+      let data; try{ data = await fetch(url).then(r=>r.json()); } catch(err){ return alert('Error al consultar Open-Meteo: '+err.message); }
+      if(!data.hourly || !data.hourly.time){ return alert('No se encontraron datos para esas fechas o ubicación.'); }
 
       const cloudPctArr = data.hourly.cloud_cover ?? data.hourly.cloudcover ?? null;
 
-      rows=[[
-        'Fecha-Hora','Vel. Viento (m/s)','Dir. Viento (°)','Temp (°C)','Humedad (%)','Presión (mmHg)','Precipitación (mm)','Nubosidad (octas)'
-      ]];
+      rows=[[ 'Fecha-Hora','Vel. Viento (m/s)','Dir. Viento (°)','Temp (°C)','Humedad (%)','Presión (mmHg)','Precipitación (mm)','Nubosidad (octas)' ]];
 
-      const sp=[], di=[];
+      // Reset almacen
+      roseStore = { all:{s:[],d:[]}, day:{s:[],d:[]}, night:{s:[],d:[]} };
+
       for(let i=0;i<data.hourly.time.length;i++){
-        const v = data.hourly.wind_speed_10m?.[i] ?? data.hourly.windspeed_10m?.[i] ?? null; // ya viene en m/s
+        const tStr = data.hourly.time[i];
+        const dt = new Date(tStr); // Open-Meteo con timezone=auto entrega local; el navegador lo interpretará local.
+        const v = data.hourly.wind_speed_10m?.[i] ?? data.hourly.windspeed_10m?.[i] ?? null; // m/s
         const d = data.hourly.wind_direction_10m?.[i] ?? data.hourly.winddirection_10m?.[i] ?? null;
-        const t = data.hourly.temperature_2m?.[i] ?? '';
+        const temp = data.hourly.temperature_2m?.[i] ?? '';
         const rh = data.hourly.relative_humidity_2m?.[i] ?? '';
         const p_mmHg = (data.hourly.surface_pressure?.[i]!=null) ? (data.hourly.surface_pressure[i]*0.75006).toFixed(2) : '';
         const prec = data.hourly.precipitation?.[i] ?? '';
         const cloudOktas = (cloudPctArr && cloudPctArr[i]!=null) ? pctToOktas(cloudPctArr[i]) : '';
 
-        rows.push([
-          data.hourly.time[i],
-          v!=null? (+v).toFixed(2): '',
-          d??'', t, rh, p_mmHg, prec, cloudOktas
-        ]);
-        if(v!=null && d!=null && isFinite(d)){ sp.push(+v); di.push(+d); }
+        rows.push([ tStr, v!=null? (+v).toFixed(2): '', d??'', temp, rh, p_mmHg, prec, cloudOktas ]);
+
+        if(v!=null && d!=null && isFinite(d)){
+          // general
+          roseStore.all.s.push(+v); roseStore.all.d.push(+d);
+          // diurna / nocturna
+          if(isDayLocal(dt)){
+            roseStore.day.s.push(+v); roseStore.day.d.push(+d);
+          }else{
+            roseStore.night.s.push(+v); roseStore.night.d.push(+d);
+          }
+        }
       }
 
       document.getElementById('tableTitle').textContent = `Datos meteorológicos para ${lastPlaceName} (${startDate} a ${endDate})`;
@@ -336,10 +322,14 @@
       renderTable(rows);
       document.getElementById('tableContainer').style.display='block';
 
-      roseStore.speeds=sp; roseStore.dirs=di;
       document.getElementById('roseWrap').style.display='block';
-      document.getElementById('roseTitle').textContent = `Rosa de vientos para ${lastPlaceName} (${startDate} a ${endDate})`;
-      buildWindRose(sp,di);
+      document.getElementById('roseTitleAll').textContent = `Rosa de vientos (general)`;
+      document.getElementById('roseTitleDay').textContent = `Rosa de vientos diurna (07:01–21:00)`;
+      document.getElementById('roseTitleNight').textContent = `Rosa de vientos nocturna (21:01–07:00)`;
+
+      if(roseStore.all.s.length)  buildWindRoseFor('windRoseAll',  roseStore.all.s,  roseStore.all.d);
+      if(roseStore.day.s.length)  buildWindRoseFor('windRoseDay',  roseStore.day.s,  roseStore.day.d);
+      if(roseStore.night.s.length)buildWindRoseFor('windRoseNight',roseStore.night.s,roseStore.night.d);
 
       document.getElementById('downloadBtn').onclick=()=>{
         const ws=XLSX.utils.aoa_to_sheet(rows);
@@ -363,7 +353,12 @@
       });
     }
 
-    window.addEventListener('resize',()=>{ if(roseStore.speeds) buildWindRose(roseStore.speeds, roseStore.dirs); });
+    window.addEventListener('resize',()=>{
+      const {all,day,night}=roseStore;
+      if(all.s.length) buildWindRoseFor('windRoseAll', all.s, all.d);
+      if(day.s.length) buildWindRoseFor('windRoseDay', day.s, day.d);
+      if(night.s.length) buildWindRoseFor('windRoseNight', night.s, night.d);
+    });
   });
   </script>
 </body>
