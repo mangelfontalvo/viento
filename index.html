@@ -11,32 +11,45 @@
   <style>
     :root{ --primary:#4CAF50; }
     *{box-sizing:border-box}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(to right,#74ebd5,#ACB6E5);margin:0;padding:30px 12px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh}
-    .container{background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:100%;max-width:1080px}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:linear-gradient(to right,#74ebd5,#ACB6E5);
+      margin:0;padding:30px 12px;display:flex;justify-content:center;align-items:flex-start;min-height:100vh
+    }
+    .container{
+      background:#fff;padding:24px 28px;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);
+      width:100%;max-width:1080px
+    }
     h1{margin:0 0 18px;font-size:22px;text-align:center;color:#222}
     form{display:grid;gap:14px}
     label{font-weight:600;color:#333}
     .coord-group{display:flex;gap:6px;flex-wrap:wrap}
-    .coord-group input,.coord-group select{width:78px;padding:8px 10px;border:1px solid #cfd7df;border-radius:8px;font-size:14px;text-align:center}
+    .coord-group input,.coord-group select{
+      width:78px;padding:8px 10px;border:1px solid #cfd7df;border-radius:8px;font-size:14px;text-align:center
+    }
     input[type=date],select,button{font-size:14px}
     input[type=date]{padding:8px 10px;border:1px solid #cfd7df;border-radius:8px;max-width:280px}
     .inline-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    button{background:var(--primary);color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;transition:filter .2s}
+    button{
+      background:var(--primary);color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;transition:filter .2s
+    }
     button:hover{filter:brightness(.95)}
+    button:disabled{opacity:.6;cursor:not-allowed}
     #map{height:380px;width:100%;border:1px solid #e2e8f0;border-radius:10px}
     .map-help{font-size:12px;color:#555}
     .table-title{margin-top:16px;font-weight:700}
     .table-container{max-height:420px;overflow:auto;margin-top:12px;border:1px solid #e2e8f0;border-radius:10px}
     table{width:100%;border-collapse:collapse;font-size:13px}
     th,td{border:1px solid #e2e8f0;padding:6px;text-align:center}
-    th{background:#f6faf7}
+    th{background:#f6faf7;position:sticky;top:0;z-index:1}
     .rose-wrap{margin-top:20px;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fafafa}
     .rose-grid{display:grid;grid-template-columns:1fr;gap:14px}
     @media(min-width:900px){.rose-grid{grid-template-columns:1fr 1fr}}
     .rose-card{border:1px dashed #e2e8f0;border-radius:10px;padding:10px;background:#fff}
     .rose-title{font-weight:700;margin-bottom:6px}
-    .rose-legend-controls{display:flex;justify-content:flex-end;gap:10px}
+    .rose-legend-controls{display:flex;justify-content:flex-end;gap:10px;align-items:center}
     .rose-plot{width:100%;height:420px}
+    .msg-empty{font-size:13px;color:#666;padding:8px 2px}
   </style>
 </head>
 <body>
@@ -57,7 +70,11 @@
         <input type="number" id="lon_deg" placeholder="°" required min="0" max="180" step="1">
         <input type="number" id="lon_min" placeholder="′" required min="0" max="59" step="1">
         <input type="number" id="lon_sec" placeholder="″" required min="0" max="59" step="1">
-        <select id="lon_dir"><option value="E">E</option><option value="W">W</option><option value="O">O</option></select>
+        <select id="lon_dir">
+          <option value="E">E</option>
+          <option value="W">W</option>
+          <option value="O">O</option>
+        </select>
       </div>
 
       <div class="inline-actions">
@@ -65,7 +82,10 @@
       </div>
 
       <div id="map"></div>
-      <div class="map-help">Tip: haz clic en el mapa o arrastra el marcador para ajustar la ubicación. (La geolocalización solo funciona bajo HTTPS o en <code>localhost</code>).</div>
+      <div class="map-help">
+        Tip: haz clic en el mapa o arrastra el marcador para ajustar la ubicación.
+        (La geolocalización solo funciona bajo HTTPS o en <code>localhost</code>).
+      </div>
 
       <label>Fecha inicio:</label>
       <input type="date" id="start" required>
@@ -73,7 +93,7 @@
       <label>Fecha fin:</label>
       <input type="date" id="end" required>
 
-      <button type="submit">🔍 Consultar Datos</button>
+      <button type="submit" id="submitBtn">🔍 Consultar Datos</button>
     </form>
 
     <div id="placeBox" class="map-help" style="display:none; margin-top:8px"></div>
@@ -96,21 +116,26 @@
         <div class="rose-card">
           <div class="rose-title" id="roseTitleAll">Rosa de vientos (general)</div>
           <div id="windRoseAll" class="rose-plot"></div>
+          <div id="windRoseAllMsg" class="msg-empty" style="display:none;"></div>
         </div>
         <div class="rose-card">
           <div class="rose-title" id="roseTitleDay">Rosa de vientos diurna (07:01–21:00)</div>
           <div id="windRoseDay" class="rose-plot"></div>
+          <div id="windRoseDayMsg" class="msg-empty" style="display:none;"></div>
         </div>
         <div class="rose-card">
           <div class="rose-title" id="roseTitleNight">Rosa de vientos nocturna (21:01–07:00)</div>
           <div id="windRoseNight" class="rose-plot"></div>
+          <div id="windRoseNightMsg" class="msg-empty" style="display:none;"></div>
         </div>
       </div>
     </div>
 
     <div class="table-container" id="tableContainer" style="display:none;">
       <table id="dataTable"></table>
-      <div style="padding:10px"><button id="downloadBtn">📥 Descargar Excel</button></div>
+      <div style="padding:10px">
+        <button id="downloadBtn" type="button">📥 Descargar Excel</button>
+      </div>
     </div>
   </div>
 
@@ -125,240 +150,496 @@
     let lastPlaceName = "";
     let roseStore = { all:{s:[],d:[]}, day:{s:[],d:[]}, night:{s:[],d:[]} };
 
-    // ===== Utilidades coordenadas =====
+    // ===== Referencias DOM (evita depender de variables globales por id) =====
+    const form = document.getElementById('weatherForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const useMyLocationBtn = document.getElementById('useMyLocation');
+
+    const latDeg = document.getElementById('lat_deg');
+    const latMin = document.getElementById('lat_min');
+    const latSec = document.getElementById('lat_sec');
+    const latDir = document.getElementById('lat_dir');
+
+    const lonDeg = document.getElementById('lon_deg');
+    const lonMin = document.getElementById('lon_min');
+    const lonSec = document.getElementById('lon_sec');
+    const lonDir = document.getElementById('lon_dir');
+
+    const startInput = document.getElementById('start');
+    const endInput = document.getElementById('end');
+
+    const placeBox = document.getElementById('placeBox');
+    const tableTitle = document.getElementById('tableTitle');
+    const tableContainer = document.getElementById('tableContainer');
+    const dataTable = document.getElementById('dataTable');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const roseWrap = document.getElementById('roseWrap');
+    const legendPos = document.getElementById('legendPos');
+
+    const windRoseAll = document.getElementById('windRoseAll');
+    const windRoseDay = document.getElementById('windRoseDay');
+    const windRoseNight = document.getElementById('windRoseNight');
+
+    const windRoseAllMsg = document.getElementById('windRoseAllMsg');
+    const windRoseDayMsg = document.getElementById('windRoseDayMsg');
+    const windRoseNightMsg = document.getElementById('windRoseNightMsg');
+
+    // ===== Utilidades =====
+    function debounce(fn, delay = 500){
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), delay);
+      };
+    }
+
+    function validLatLon(lat, lon){
+      return Number.isFinite(lat) && Number.isFinite(lon) &&
+             lat >= -90 && lat <= 90 &&
+             lon >= -180 && lon <= 180;
+    }
+
     function dmsToDecimal(deg, min, sec, dir) {
-      let decimal = parseFloat(deg||0)+parseFloat(min||0)/60+parseFloat(sec||0)/3600;
-      if(["S","W","O"].includes(String(dir).toUpperCase())) decimal*=-1;
+      let decimal = parseFloat(deg || 0) + parseFloat(min || 0) / 60 + parseFloat(sec || 0) / 3600;
+      if (["S","W","O"].includes(String(dir).toUpperCase())) decimal *= -1;
       return +decimal.toFixed(6);
     }
-    function decimalToDMS(value,isLat=true){
-      const dirPos=isLat?"N":"E",dirNeg=isLat?"S":"W",dir=value>=0?dirPos:dirNeg;
-      const abs=Math.abs(value),deg=Math.floor(abs);
-      const minFloat=(abs-deg)*60,min=Math.floor(minFloat);
-      const sec=Math.round((minFloat-min)*60);
-      return {deg,min,sec:sec===60?59:sec,dir};
+
+    // Corregida: manejo correcto de carry cuando sec/min redondean a 60
+    function decimalToDMS(value, isLat = true){
+      const dirPos = isLat ? "N" : "E";
+      const dirNeg = isLat ? "S" : "W";
+      const dir = value >= 0 ? dirPos : dirNeg;
+
+      let abs = Math.abs(value);
+      let deg = Math.floor(abs);
+      let minFloat = (abs - deg) * 60;
+      let min = Math.floor(minFloat);
+      let sec = Math.round((minFloat - min) * 60);
+
+      if (sec === 60) { sec = 0; min += 1; }
+      if (min === 60) { min = 0; deg += 1; }
+
+      return { deg, min, sec, dir };
     }
-    function setInputsFromDecimal(lat,lon){
-      const latD=decimalToDMS(lat,true),lonD=decimalToDMS(lon,false);
-      lat_deg.value=latD.deg; lat_min.value=latD.min; lat_sec.value=latD.sec; lat_dir.value=latD.dir;
-      lon_deg.value=lonD.deg; lon_min.value=lonD.min; lon_sec.value=lonD.sec; lon_dir.value=(lonD.dir==="W")?"W":"E";
+
+    function setInputsFromDecimal(lat, lon){
+      const latD = decimalToDMS(lat, true);
+      const lonD = decimalToDMS(lon, false);
+
+      latDeg.value = latD.deg;
+      latMin.value = latD.min;
+      latSec.value = latD.sec;
+      latDir.value = latD.dir;
+
+      lonDeg.value = lonD.deg;
+      lonMin.value = lonD.min;
+      lonSec.value = lonD.sec;
+      // Mantener coherencia con opciones disponibles (W u O para Oeste)
+      lonDir.value = (lonD.dir === "W") ? "W" : "E";
     }
+
     function getDecimalsFromInputs(){
-      return{ lat:dmsToDecimal(lat_deg.value,lat_min.value,lat_sec.value,lat_dir.value), lon:dmsToDecimal(lon_deg.value,lon_min.value,lon_sec.value,lon_dir.value) };
+      return {
+        lat: dmsToDecimal(latDeg.value, latMin.value, latSec.value, latDir.value),
+        lon: dmsToDecimal(lonDeg.value, lonMin.value, lonSec.value, lonDir.value)
+      };
     }
 
     // ===== Geocoding =====
-    async function getPlaceName(lat,lon){
+    async function getPlaceName(lat, lon){
       try{
-        const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es`;
-        const res=await fetch(url,{headers:{"Accept":"application/json"}});
-        const data=await res.json();
-        const a=data.address||{};
-        return a.city||a.town||a.village||a.municipality||a.county||a.state||data.display_name||`${lat},${lon}`;
-      }catch{ return `${lat},${lon}` }
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=es`;
+        const res = await fetch(url, { headers: { "Accept":"application/json" } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const a = data.address || {};
+        return a.city || a.town || a.village || a.municipality || a.county || a.state || data.display_name || `${lat}, ${lon}`;
+      }catch{
+        return `${lat}, ${lon}`;
+      }
     }
+
+    async function updatePlaceBox(lat, lon){
+      lastPlaceName = await getPlaceName(lat, lon);
+      placeBox.textContent = `📍 ${lastPlaceName} (Lat: ${lat}, Lon: ${lon})`;
+      placeBox.style.display = 'block';
+    }
+    const updatePlaceBoxDebounced = debounce(updatePlaceBox, 600);
 
     // ===== Mapa =====
-    const map = L.map('map', { zoomControl: true }).setView([4.6,-74.1], 6);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap'}).addTo(map);
-    const marker = L.marker([4.6,-74.1], { draggable: true }).addTo(map);
-    setInputsFromDecimal(4.6,-74.1);
+    const map = L.map('map', { zoomControl: true }).setView([4.6, -74.1], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'&copy; OpenStreetMap'
+    }).addTo(map);
 
-    async function updatePlaceBox(lat,lon){
-      lastPlaceName=await getPlaceName(lat,lon);
-      const el = document.getElementById('placeBox');
-      el.textContent = `📍 ${lastPlaceName} (Lat: ${lat}, Lon: ${lon})`;
-      el.style.display = 'block';
-    }
-    updatePlaceBox(4.6,-74.1);
+    const marker = L.marker([4.6, -74.1], { draggable: true }).addTo(map);
+    setInputsFromDecimal(4.6, -74.1);
+    updatePlaceBox(4.6, -74.1);
 
     map.on('click', async (e) => {
       marker.setLatLng(e.latlng);
       setInputsFromDecimal(e.latlng.lat, e.latlng.lng);
       await updatePlaceBox(e.latlng.lat, e.latlng.lng);
     });
+
     marker.on('dragend', async () => {
-      const {lat,lng} = marker.getLatLng();
-      setInputsFromDecimal(lat,lng);
-      await updatePlaceBox(lat,lng);
+      const { lat, lng } = marker.getLatLng();
+      setInputsFromDecimal(lat, lng);
+      await updatePlaceBox(lat, lng);
     });
 
-    document.getElementById('useMyLocation').addEventListener('click', () => {
-      if(!navigator.geolocation){ return alert('Geolocalización no soportada por el navegador.'); }
-      navigator.geolocation.getCurrentPosition(async pos => {
-        const lat = +pos.coords.latitude.toFixed(6);
-        const lon = +pos.coords.longitude.toFixed(6);
-        map.setView([lat,lon], 13);
-        marker.setLatLng([lat,lon]);
-        setInputsFromDecimal(lat,lon);
-        await updatePlaceBox(lat,lon);
-      }, err => { alert('No se pudo obtener ubicación: ' + err.message); }, { enableHighAccuracy:true, timeout:10000 });
+    useMyLocationBtn.addEventListener('click', () => {
+      if (!navigator.geolocation){
+        return alert('Geolocalización no soportada por el navegador.');
+      }
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          const lat = +pos.coords.latitude.toFixed(6);
+          const lon = +pos.coords.longitude.toFixed(6);
+          map.setView([lat, lon], 13);
+          marker.setLatLng([lat, lon]);
+          setInputsFromDecimal(lat, lon);
+          await updatePlaceBox(lat, lon);
+        },
+        err => { alert('No se pudo obtener ubicación: ' + err.message); },
+        { enableHighAccuracy:true, timeout:10000 }
+      );
     });
 
     function updateMapFromInputs(){
       const { lat, lon } = getDecimalsFromInputs();
-      if(isFinite(lat) && isFinite(lon)){
-        marker.setLatLng([lat,lon]);
-        map.setView([lat,lon], map.getZoom());
-        updatePlaceBox(lat,lon);
+      if (validLatLon(lat, lon)){
+        marker.setLatLng([lat, lon]);
+        map.setView([lat, lon], map.getZoom());
+        updatePlaceBoxDebounced(lat, lon);
       }
     }
-    ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"].forEach(id=>{
-      document.getElementById(id).addEventListener('input', updateMapFromInputs);
-      document.getElementById(id).addEventListener('change', updateMapFromInputs);
+
+    ["lat_deg","lat_min","lat_sec","lat_dir","lon_deg","lon_min","lon_sec","lon_dir"].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', updateMapFromInputs);
+      el.addEventListener('change', updateMapFromInputs);
     });
 
     // ===== Rosa de vientos =====
-    const SECTORS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-    const BIN_EDGES=[0,2,4,6,8,10,12,Infinity];
-    const BIN_LABELS=['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
-    const pctToOktas = pct => Math.min(8, Math.max(0, Math.round(8*(pct??0)/100)));
-    function dirToSectorIndex(d){return Math.round((d%360)/22.5)%16;}
+    const SECTORS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const BIN_EDGES = [0,2,4,6,8,10,12,Infinity];
+    const BIN_LABELS = ['0–2','2–4','4–6','6–8','8–10','10–12','12+'];
+    const pctToOktas = pct => Math.min(8, Math.max(0, Math.round(8 * (pct ?? 0) / 100)));
+
+    function dirToSectorIndex(d){ return Math.round((d % 360) / 22.5) % 16; }
+
     function legendCfg(){
-      const pos = document.getElementById('legendPos').value;
-      if(pos==='top') return {orientation:'h', x:0, y:1.2};
-      if(pos==='right') return {orientation:'v', x:1.05, y:1};
-      if(pos==='left') return {orientation:'v', x:-0.25, y:1};
-      return {orientation:'h', x:0, y:-0.3};
+      const pos = legendPos.value;
+      if(pos === 'top')   return { orientation:'h', x:0, y:1.2 };
+      if(pos === 'right') return { orientation:'v', x:1.05, y:1 };
+      if(pos === 'left')  return { orientation:'v', x:-0.25, y:1 };
+      return { orientation:'h', x:0, y:-0.3 };
     }
-    function buildWindRoseFor(divId, speeds, dirs){
-      const counts=Array.from({length:BIN_EDGES.length-1},()=>Array(SECTORS.length).fill(0));
-      let total=0,calm=0;
-      for(let i=0;i<dirs.length;i++){
-        const v=speeds[i], d=dirs[i];
-        if(v==null||isNaN(v)) continue;
-        if(v<0.5){calm++; total++; continue;}
-        if(d==null||isNaN(d)) continue;
-        const s=dirToSectorIndex(d);
-        let b=BIN_EDGES.length-2;
-        for(let j=0;j<BIN_EDGES.length-1;j++){
-          if(v>=BIN_EDGES[j] && v<BIN_EDGES[j+1]){ b=j; break; }
+
+    function showRoseMessage(divId, msgEl, message){
+      const div = document.getElementById(divId);
+      try { Plotly.purge(div); } catch(_) {}
+      div.innerHTML = "";
+      div.style.display = "none";
+      msgEl.textContent = message;
+      msgEl.style.display = "block";
+    }
+
+    function hideRoseMessage(divId, msgEl){
+      const div = document.getElementById(divId);
+      div.style.display = "block";
+      msgEl.style.display = "none";
+      msgEl.textContent = "";
+    }
+
+    function buildWindRoseFor(divId, msgEl, speeds, dirs){
+      if (!Array.isArray(speeds) || !Array.isArray(dirs) || speeds.length === 0 || dirs.length === 0){
+        showRoseMessage(divId, msgEl, "Sin datos suficientes para graficar.");
+        return;
+      }
+
+      const counts = Array.from({length: BIN_EDGES.length - 1}, () => Array(SECTORS.length).fill(0));
+      let total = 0, calm = 0;
+
+      for(let i = 0; i < dirs.length; i++){
+        const v = speeds[i], d = dirs[i];
+        if (v == null || isNaN(v)) continue;
+        if (v < 0.5){ calm++; total++; continue; }
+        if (d == null || isNaN(d)) continue;
+
+        const s = dirToSectorIndex(d);
+        let b = BIN_EDGES.length - 2;
+        for(let j = 0; j < BIN_EDGES.length - 1; j++){
+          if (v >= BIN_EDGES[j] && v < BIN_EDGES[j + 1]) { b = j; break; }
         }
-        counts[b][s]++; total++;
+        counts[b][s]++;
+        total++;
       }
-      const traces=[];
-      for(let b=0;b<BIN_LABELS.length;b++){
-        const r=new Array(SECTORS.length).fill(0);
-        for(let s=0;s<SECTORS.length;s++){ r[s]=total?(counts[b][s]/total*100):0; }
-        traces.push({type:'barpolar', r, theta:SECTORS, name:`${BIN_LABELS[b]} m/s`});
+
+      if (total === 0){
+        showRoseMessage(divId, msgEl, "No hay datos válidos de viento para este periodo.");
+        return;
       }
-      const calmPct=total?(calm/total*100):0;
-      if(calmPct>0){
-        const maxR=Math.max(...counts.flat().map(v=>(v/total*100)||0));
-        const calmRadius=maxR>0?maxR*0.15:5;
-        traces.unshift({type:'barpolar', r:[calmRadius], theta:['N'], width:[360], name:'Calma', marker:{color:'rgba(150,150,150,0.4)'}, hovertemplate:`Calma: ${calmPct.toFixed(1)}%<extra></extra>`});
+
+      hideRoseMessage(divId, msgEl);
+
+      const traces = [];
+      for(let b = 0; b < BIN_LABELS.length; b++){
+        const r = new Array(SECTORS.length).fill(0);
+        for(let s = 0; s < SECTORS.length; s++){
+          r[s] = total ? (counts[b][s] / total * 100) : 0;
+        }
+        traces.push({
+          type:'barpolar',
+          r,
+          theta:SECTORS,
+          name:`${BIN_LABELS[b]} m/s`
+        });
       }
-      let w=document.getElementById(divId).clientWidth, margin={l:50,r:60,t:50,b:60};
-      if(w<600) margin={l:40,r:40,t:40,b:50}; else if(w<900) margin={l:45,r:50,t:45,b:55};
-      Plotly.newPlot(divId, traces, {showlegend:true, legend:legendCfg(), margin, polar:{barmode:'stack', radialaxis:{ticksuffix:'%',dtick:5}, angularaxis:{direction:'clockwise', rotation:90}}}, {responsive:true});
+
+      const calmPct = total ? (calm / total * 100) : 0;
+      if(calmPct > 0){
+        const maxR = Math.max(...counts.flat().map(v => (v / total * 100) || 0));
+        const calmRadius = maxR > 0 ? maxR * 0.15 : 5;
+        traces.unshift({
+          type:'barpolar',
+          r:[calmRadius],
+          theta:['N'],
+          width:[360],
+          name:'Calma',
+          marker:{color:'rgba(150,150,150,0.4)'},
+          hovertemplate:`Calma: ${calmPct.toFixed(1)}%<extra></extra>`
+        });
+      }
+
+      let w = document.getElementById(divId).clientWidth;
+      let margin = {l:50,r:60,t:50,b:60};
+      if(w < 600) margin = {l:40,r:40,t:40,b:50};
+      else if(w < 900) margin = {l:45,r:50,t:45,b:55};
+
+      Plotly.newPlot(
+        divId,
+        traces,
+        {
+          showlegend:true,
+          legend:legendCfg(),
+          margin,
+          polar:{
+            barmode:'stack',
+            radialaxis:{ticksuffix:'%', dtick:5},
+            angularaxis:{direction:'clockwise', rotation:90}
+          }
+        },
+        {responsive:true}
+      );
     }
-    document.getElementById('legendPos').addEventListener('change',()=>{
-      const {all,day,night}=roseStore;
-      if(all.s.length) buildWindRoseFor('windRoseAll', all.s, all.d);
-      if(day.s.length) buildWindRoseFor('windRoseDay', day.s, day.d);
-      if(night.s.length) buildWindRoseFor('windRoseNight', night.s, night.d);
+
+    legendPos.addEventListener('change', () => {
+      const {all, day, night} = roseStore;
+      if(all.s.length)   buildWindRoseFor('windRoseAll',   windRoseAllMsg, all.s, all.d);
+      if(day.s.length)   buildWindRoseFor('windRoseDay',   windRoseDayMsg, day.s, day.d);
+      if(night.s.length) buildWindRoseFor('windRoseNight', windRoseNightMsg, night.s, night.d);
     });
 
-    // Día / Noche (local): diurna 07:01–21:00 ; nocturna 21:01–07:00
-    function isDayLocal(date){
-      const h=date.getHours(), m=date.getMinutes();
-      const afterStart = (h>7) || (h===7 && m>=1);
-      const beforeEnd  = (h<21) || (h===21 && m===0);
+    // Día / Noche usando el texto horario devuelto por API (evita problemas de zona horaria del navegador)
+    // Diurna: 07:01–21:00 ; Nocturna: 21:01–07:00
+    function isDayFromTimeString(tStr){
+      // Esperado: "YYYY-MM-DDTHH:mm"
+      const h = parseInt(tStr.slice(11,13), 10);
+      const m = parseInt(tStr.slice(14,16), 10);
+      if (!Number.isFinite(h) || !Number.isFinite(m)) return false;
+
+      const afterStart = (h > 7) || (h === 7 && m >= 1);
+      const beforeEnd  = (h < 21) || (h === 21 && m === 0);
       return afterStart && beforeEnd;
     }
 
     // ===== Formulario =====
-    document.getElementById('weatherForm').addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const {lat,lon}=getDecimalsFromInputs();
-      const startDate=document.getElementById('start').value;
-      const endDate=document.getElementById('end').value;
-      await updatePlaceBox(lat,lon);
 
-      const qs = new URLSearchParams({
-        latitude:String(lat), longitude:String(lon), start_date:startDate, end_date:endDate,
-        hourly:['wind_speed_10m','wind_direction_10m','temperature_2m','relative_humidity_2m','surface_pressure','precipitation','cloud_cover'].join(','),
-        timezone:'auto', wind_speed_unit:'ms', precipitation_unit:'mm'
-      });
-      const url = `https://archive-api.open-meteo.com/v1/archive?${qs.toString()}`;
+      const {lat, lon} = getDecimalsFromInputs();
+      const startDate = startInput.value;
+      const endDate = endInput.value;
 
-      let data; try{ data = await fetch(url).then(r=>r.json()); } catch(err){ return alert('Error al consultar Open-Meteo: '+err.message); }
-      if(!data.hourly || !data.hourly.time){ return alert('No se encontraron datos para esas fechas o ubicación.'); }
-
-      const cloudPctArr = data.hourly.cloud_cover ?? data.hourly.cloudcover ?? null;
-
-      rows=[[ 'Fecha-Hora','Vel. Viento (m/s)','Dir. Viento (°)','Temp (°C)','Humedad (%)','Presión (mmHg)','Precipitación (mm)','Nubosidad (octas)' ]];
-
-      // Reset almacen
-      roseStore = { all:{s:[],d:[]}, day:{s:[],d:[]}, night:{s:[],d:[]} };
-
-      for(let i=0;i<data.hourly.time.length;i++){
-        const tStr = data.hourly.time[i];
-        const dt = new Date(tStr); // Open-Meteo con timezone=auto entrega local; el navegador lo interpretará local.
-        const v = data.hourly.wind_speed_10m?.[i] ?? data.hourly.windspeed_10m?.[i] ?? null; // m/s
-        const d = data.hourly.wind_direction_10m?.[i] ?? data.hourly.winddirection_10m?.[i] ?? null;
-        const temp = data.hourly.temperature_2m?.[i] ?? '';
-        const rh = data.hourly.relative_humidity_2m?.[i] ?? '';
-        const p_mmHg = (data.hourly.surface_pressure?.[i]!=null) ? (data.hourly.surface_pressure[i]*0.75006).toFixed(2) : '';
-        const prec = data.hourly.precipitation?.[i] ?? '';
-        const cloudOktas = (cloudPctArr && cloudPctArr[i]!=null) ? pctToOktas(cloudPctArr[i]) : '';
-
-        rows.push([ tStr, v!=null? (+v).toFixed(2): '', d??'', temp, rh, p_mmHg, prec, cloudOktas ]);
-
-        if(v!=null && d!=null && isFinite(d)){
-          // general
-          roseStore.all.s.push(+v); roseStore.all.d.push(+d);
-          // diurna / nocturna
-          if(isDayLocal(dt)){
-            roseStore.day.s.push(+v); roseStore.day.d.push(+d);
-          }else{
-            roseStore.night.s.push(+v); roseStore.night.d.push(+d);
-          }
-        }
+      if (!validLatLon(lat, lon)) {
+        return alert('Coordenadas inválidas. Verifica latitud/longitud.');
+      }
+      if (!startDate || !endDate) {
+        return alert('Selecciona fecha inicio y fecha fin.');
+      }
+      if (startDate > endDate) {
+        return alert('La fecha inicio no puede ser mayor que la fecha fin.');
       }
 
-      document.getElementById('tableTitle').textContent = `Datos meteorológicos para ${lastPlaceName} (${startDate} a ${endDate})`;
-      document.getElementById('tableTitle').style.display='block';
-      renderTable(rows);
-      document.getElementById('tableContainer').style.display='block';
+      submitBtn.disabled = true;
+      const originalSubmitText = submitBtn.textContent;
+      submitBtn.textContent = 'Consultando...';
 
-      document.getElementById('roseWrap').style.display='block';
-      document.getElementById('roseTitleAll').textContent = `Rosa de vientos (general)`;
-      document.getElementById('roseTitleDay').textContent = `Rosa de vientos diurna (07:01–21:00)`;
-      document.getElementById('roseTitleNight').textContent = `Rosa de vientos nocturna (21:01–07:00)`;
+      try {
+        await updatePlaceBox(lat, lon);
 
-      if(roseStore.all.s.length)  buildWindRoseFor('windRoseAll',  roseStore.all.s,  roseStore.all.d);
-      if(roseStore.day.s.length)  buildWindRoseFor('windRoseDay',  roseStore.day.s,  roseStore.day.d);
-      if(roseStore.night.s.length)buildWindRoseFor('windRoseNight',roseStore.night.s,roseStore.night.d);
+        // ✅ Agregado shortwave_radiation (W/m²)
+        const hourlyVars = [
+          'wind_speed_10m',
+          'wind_direction_10m',
+          'temperature_2m',
+          'relative_humidity_2m',
+          'surface_pressure',
+          'precipitation',
+          'cloud_cover',
+          'shortwave_radiation'
+        ];
 
-      document.getElementById('downloadBtn').onclick=()=>{
-        const ws=XLSX.utils.aoa_to_sheet(rows);
-        const wb=XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb,ws,'Meteo');
-        XLSX.writeFile(wb,`datos_meteo_${startDate}_a_${endDate}.xlsx`);
-      };
+        const qs = new URLSearchParams({
+          latitude: String(lat),
+          longitude: String(lon),
+          start_date: startDate,
+          end_date: endDate,
+          hourly: hourlyVars.join(','),
+          timezone: 'auto',
+          wind_speed_unit: 'ms',
+          precipitation_unit: 'mm'
+        });
+
+        const url = `https://archive-api.open-meteo.com/v1/archive?${qs.toString()}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.hourly || !data.hourly.time) {
+          return alert('No se encontraron datos para esas fechas o ubicación.');
+        }
+
+        const cloudPctArr = data.hourly.cloud_cover ?? data.hourly.cloudcover ?? null;
+
+        rows = [[
+          'Fecha-Hora',
+          'Vel. Viento (m/s)',
+          'Dir. Viento (°)',
+          'Temp (°C)',
+          'Humedad (%)',
+          'Presión (mmHg)',
+          'Precipitación (mm)',
+          'Nubosidad (octas)',
+          'Radiación solar (W/m²)'
+        ]];
+
+        // Reset almacen rosas
+        roseStore = { all:{s:[],d:[]}, day:{s:[],d:[]}, night:{s:[],d:[]} };
+
+        for(let i = 0; i < data.hourly.time.length; i++){
+          const tStr = data.hourly.time[i];
+
+          const v = data.hourly.wind_speed_10m?.[i] ?? data.hourly.windspeed_10m?.[i] ?? null;
+          const d = data.hourly.wind_direction_10m?.[i] ?? data.hourly.winddirection_10m?.[i] ?? null;
+          const temp = data.hourly.temperature_2m?.[i] ?? '';
+          const rh = data.hourly.relative_humidity_2m?.[i] ?? '';
+          const p_mmHg = (data.hourly.surface_pressure?.[i] != null)
+            ? +(data.hourly.surface_pressure[i] * 0.75006).toFixed(2)
+            : '';
+          const prec = data.hourly.precipitation?.[i] ?? '';
+          const cloudOktas = (cloudPctArr && cloudPctArr[i] != null) ? pctToOktas(cloudPctArr[i]) : '';
+
+          // ✅ Radiación solar (global horizontal) en W/m²
+          const solarRad = data.hourly.shortwave_radiation?.[i] ?? '';
+
+          rows.push([
+            tStr,
+            v != null ? +(+v).toFixed(2) : '',
+            d ?? '',
+            temp,
+            rh,
+            p_mmHg,
+            prec,
+            cloudOktas,
+            solarRad
+          ]);
+
+          if (v != null && d != null && isFinite(d)) {
+            roseStore.all.s.push(+v);
+            roseStore.all.d.push(+d);
+
+            if (isDayFromTimeString(tStr)) {
+              roseStore.day.s.push(+v);
+              roseStore.day.d.push(+d);
+            } else {
+              roseStore.night.s.push(+v);
+              roseStore.night.d.push(+d);
+            }
+          }
+        }
+
+        tableTitle.textContent = `Datos meteorológicos para ${lastPlaceName} (${startDate} a ${endDate})`;
+        tableTitle.style.display = 'block';
+
+        renderTable(rows);
+        tableContainer.style.display = 'block';
+
+        roseWrap.style.display = 'block';
+        document.getElementById('roseTitleAll').textContent   = `Rosa de vientos (general)`;
+        document.getElementById('roseTitleDay').textContent   = `Rosa de vientos diurna (07:01–21:00)`;
+        document.getElementById('roseTitleNight').textContent = `Rosa de vientos nocturna (21:01–07:00)`;
+
+        if (roseStore.all.s.length) {
+          buildWindRoseFor('windRoseAll', windRoseAllMsg, roseStore.all.s, roseStore.all.d);
+        } else {
+          showRoseMessage('windRoseAll', windRoseAllMsg, 'Sin datos suficientes para rosa general.');
+        }
+
+        if (roseStore.day.s.length) {
+          buildWindRoseFor('windRoseDay', windRoseDayMsg, roseStore.day.s, roseStore.day.d);
+        } else {
+          showRoseMessage('windRoseDay', windRoseDayMsg, 'Sin datos suficientes para rosa diurna.');
+        }
+
+        if (roseStore.night.s.length) {
+          buildWindRoseFor('windRoseNight', windRoseNightMsg, roseStore.night.s, roseStore.night.d);
+        } else {
+          showRoseMessage('windRoseNight', windRoseNightMsg, 'Sin datos suficientes para rosa nocturna.');
+        }
+
+        downloadBtn.onclick = () => {
+          const ws = XLSX.utils.aoa_to_sheet(rows);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Meteo');
+          XLSX.writeFile(wb, `datos_meteo_${startDate}_a_${endDate}.xlsx`);
+        };
+
+      } catch(err){
+        alert('Error al consultar Open-Meteo: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalSubmitText;
+      }
     });
 
     function renderTable(data){
-      const tbl=document.getElementById('dataTable');
-      tbl.innerHTML='';
-      data.forEach((r,i)=>{
-        const tr=document.createElement('tr');
-        r.forEach(c=>{
-          const cell=document.createElement(i===0?'th':'td');
-          cell.textContent = (c===null||c===undefined)?'':c;
+      dataTable.innerHTML = '';
+      data.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        r.forEach(c => {
+          const cell = document.createElement(i === 0 ? 'th' : 'td');
+          cell.textContent = (c === null || c === undefined) ? '' : c;
           tr.appendChild(cell);
         });
-        tbl.appendChild(tr);
+        dataTable.appendChild(tr);
       });
     }
 
-    window.addEventListener('resize',()=>{
-      const {all,day,night}=roseStore;
-      if(all.s.length) buildWindRoseFor('windRoseAll', all.s, all.d);
-      if(day.s.length) buildWindRoseFor('windRoseDay', day.s, day.d);
-      if(night.s.length) buildWindRoseFor('windRoseNight', night.s, night.d);
-    });
+    // Re-render plots en resize
+    const rerenderRoses = debounce(() => {
+      const {all, day, night} = roseStore;
+      if (all.s.length)   buildWindRoseFor('windRoseAll', windRoseAllMsg, all.s, all.d);
+      if (day.s.length)   buildWindRoseFor('windRoseDay', windRoseDayMsg, day.s, day.d);
+      if (night.s.length) buildWindRoseFor('windRoseNight', windRoseNightMsg, night.s, night.d);
+    }, 200);
+
+    window.addEventListener('resize', rerenderRoses);
   });
   </script>
 </body>
